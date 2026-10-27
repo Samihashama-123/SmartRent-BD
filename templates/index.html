@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ 'SmartRent BD — বাসা ও রুমমেট খুঁজুন' if lang == 'bn' else 'SmartRent BD — Student Housing & Roommates' }}{% endblock %}
+{% block content %}
+{% set first = listings[0] if listings else none %}
+<section class="sr-home-hero">
+  <div class="sr-home-hero-inner">
+    <div class="sr-home-copy">
+      <div class="sr-eyebrow"><span class="sr-eyebrow-dot"></span>{{ 'বাংলাদেশের শিক্ষার্থীদের জন্য' if lang=='bn' else 'BUILT FOR STUDENTS IN BANGLADESH' }}</div>
+      <h1>{{ 'থাকার জায়গা খুঁজুন,' if lang=='bn' else 'Find a place to live.' }}<br><em>{{ 'নিজের মতো করে।' if lang=='bn' else 'Feel at home.' }}</em></h1>
+      <p>{{ 'ক্যাম্পাসের কাছে মেস, সিঙ্গেল রুম বা ফ্ল্যাট খুঁজুন। ভাড়া ও সুবিধা তুলনা করুন, বাসা দেখার অনুরোধ পাঠান এবং উপযুক্ত রুমমেট খুঁজে নিন।' if lang=='bn' else 'Explore rooms, mess seats and apartments near campus. Compare rent, arrange a visit and connect with compatible roommates—all in one place.' }}</p>
+      <form action="/listings" method="get" class="sr-home-search">
+        <i class="fa-solid fa-location-dot"></i>
+        <label class="sr-visually-hidden" for="home-location">{{ 'কোন এলাকায় বাসা চান?' if lang=='bn' else 'Area or neighborhood' }}</label>
+        <input id="home-location" type="search" name="area" placeholder="{{ 'এলাকা লিখুন, যেমন: মাটিডালি বা ধানমন্ডি' if lang=='bn' else 'Try Matidali, Bogura, Dhanmondi...' }}" autocomplete="off">
+        <label class="sr-visually-hidden" for="home-budget">{{ 'সর্বোচ্চ বাজেট' if lang=='bn' else 'Maximum budget' }}</label>
+        <select id="home-budget" name="max_budget" aria-label="{{ 'সর্বোচ্চ বাজেট' if lang=='bn' else 'Maximum budget' }}"><option value="">{{ 'যেকোনো বাজেট' if lang=='bn' else 'Any budget' }}</option><option value="3000">৳3,000</option><option value="5000">৳5,000</option><option value="8000">৳8,000</option><option value="12000">৳12,000</option><option value="20000">৳20,000</option></select>
+        <button type="submit"><i class="fa-solid fa-magnifying-glass"></i>{{ 'বাসা খুঁজুন' if lang=='bn' else 'Find housing' }}</button>
+      </form>
+      <div class="sr-home-quick"><span>{{ 'শহর অনুযায়ী খুঁজুন:' if lang=='bn' else 'Explore by city:' }}</span>
+        <a href="/listings?area=Bogura"><i class="fa-solid fa-location-dot"></i> {{ 'বগুড়া' if lang=='bn' else 'Bogura' }}</a>
+        <a href="/listings?area=Rajshahi"><i class="fa-solid fa-location-dot"></i> {{ 'রাজশাহী' if lang=='bn' else 'Rajshahi' }}</a>
+        <a href="/listings?area=Dhaka"><i class="fa-solid fa-location-dot"></i> {{ 'ঢাকা' if lang=='bn' else 'Dhaka' }}</a>
+      </div>
+      <div class="sr-home-quick"><span>{{ 'জনপ্রিয় খোঁজ:' if lang=='bn' else 'Quick searches:' }}</span>
+        <a href="/listings?property_type=Mess+Seat">{{ 'মেস সিট' if lang=='bn' else 'Mess seats' }}</a>
+        <a href="/listings?property_type=Single+Room">{{ 'সিঙ্গেল রুম' if lang=='bn' else 'Single rooms' }}</a>
+        <a href="/listings?property_type=Bachelor+Flat">{{ 'সম্পূর্ণ ফ্ল্যাট' if lang=='bn' else 'Apartments' }}</a>
+      </div>
+      <div class="sr-home-promise"><i class="fa-solid fa-shield-heart"></i><span>{{ 'অগ্রিম টাকা দেওয়ার আগে অবশ্যই বাসা ও মালিক যাচাই করুন।' if lang=='bn' else 'Always view a property and verify ownership before paying.' }}</span></div>
+    </div>
+    <div class="sr-home-art">
+      {% if first %}
+      {% set first_photos = first.photos|from_json %}
+      <div class="sr-showcase-photo" style="background-image:url('{{ first_photos[0] if first_photos else '' }}')" role="img" aria-label="{{ tr_listing(first, "title") }}"></div>
+      <div class="sr-showcase-head"><div><small>{{ 'বাসা দেখুন' if lang=='bn' else 'EXPLORE HOUSING' }}</small><h2>{{ 'আপনার পরের ঠিকানা এখানেই হতে পারে' if lang=='bn' else 'Discover your next place' }}</h2></div><span class="sr-showcase-mark"><i class="fa-solid fa-house-chimney"></i></span></div>
+      <a href="/listings/{{ first.id }}" class="sr-showcase-card"><div><span class="sr-showcase-location"><i class="fa-solid fa-location-dot"></i>{{ tr_enum(first.area) }}</span><strong>{{ tr_listing(first, "title") }}</strong><small>{{ ({"Mess Seat":"মেস সিট", "Single Room":"সিঙ্গেল রুম", "Bachelor Flat":"ব্যাচেলর ফ্ল্যাট", "Shared Room":"শেয়ার রুম", "Apartment":"ফ্ল্যাট"}.get(first.property_type, first.property_type) if lang=="bn" else first.property_type) }}</small></div><div class="sr-showcase-price">৳{{ '{:,}'.format(first.rent_amount) }}<small>{{ 'প্রতি মাসে' if lang=='bn' else '/month' }}</small></div><i class="fa-solid fa-arrow-up-right-from-square sr-showcase-arrow"></i></a>
+      {% else %}
+      <div class="sr-showcase-empty"><i class="fa-solid fa-house-circle-check"></i><h2>{{ 'আপনার পরবর্তী বাসা খুঁজুন' if lang=='bn' else 'Your next home is waiting' }}</h2><p>{{ 'নতুন বিজ্ঞাপন অনুমোদন হলে এখানে দেখা যাবে।' if lang=='bn' else 'New listings will appear here when approved.' }}</p><a href="/listings">{{ 'সব বাসা দেখুন' if lang=='bn' else 'Browse housing' }}</a></div>
+      {% endif %}
+      <span class="sr-deco-circle sr-deco-circle-1"></span><span class="sr-deco-circle sr-deco-circle-2"></span>
+    </div>
+  </div>
+</section>
+<section class="sr-home-content">
+  <div class="sr-section-header"><div><span class="sr-section-kicker">{{ 'সহজ তিনটি ধাপ' if lang=='bn' else 'HOW IT WORKS' }}</span><h2>{{ 'খোঁজা থেকে সিদ্ধান্ত—সব সহজ' if lang=='bn' else 'Everything you need to settle in' }}</h2><p>{{ 'নিজের প্রয়োজন অনুযায়ী সেবা বেছে নিন।' if lang=='bn' else 'Start with what matters most to you.' }}</p></div></div>
+  <div class="sr-feature-grid">
+    <a class="sr-feature" href="/listings"><span class="sr-feature-icon sr-feature-green"><i class="fa-solid fa-building"></i></span><span class="sr-feature-text"><small>01 / {{ 'বাসা' if lang=='bn' else 'HOUSING' }}</small><strong>{{ 'সঠিক বাসা খুঁজুন' if lang=='bn' else 'Find the right space' }}</strong><span>{{ 'এলাকা, বাজেট ও সুবিধা অনুযায়ী ফিল্টার করে বাসা দেখুন।' if lang=='bn' else 'Filter by area, budget and amenities to find a good fit.' }}</span></span><i class="fa-solid fa-arrow-up-right-from-square sr-feature-arrow"></i></a>
+    {% if not current_user or current_user.role=='student' %}
+    <a class="sr-feature" href="{{ '/roommates' if current_user else '/login?next=/roommates' }}"><span class="sr-feature-icon sr-feature-blue"><i class="fa-solid fa-user-group"></i></span><span class="sr-feature-text"><small>02 / {{ 'রুমমেট' if lang=='bn' else 'ROOMMATES' }}</small><strong>{{ 'পছন্দের রুমমেট' if lang=='bn' else 'Meet compatible people' }}</strong><span>{{ 'অভ্যাস ও বাজেট মিলিয়ে সম্ভাব্য রুমমেট দেখুন।' if lang=='bn' else 'Compare lifestyle and budget before sending a connection request.' }}</span></span><i class="fa-solid fa-arrow-up-right-from-square sr-feature-arrow"></i></a>
+    {% elif current_user.role=='landlord' %}
+    <a class="sr-feature" href="/landlord"><span class="sr-feature-icon sr-feature-blue"><i class="fa-solid fa-house-circle-check"></i></span><span class="sr-feature-text"><small>02 / {{ 'মালিক' if lang=='bn' else 'LANDLORD' }}</small><strong>{{ 'আমার প্রপার্টি পরিচালনা' if lang=='bn' else 'Manage my properties' }}</strong><span>{{ 'বিজ্ঞাপন, ভিজিট ও বুকিংয়ের অনুরোধ এক জায়গায় দেখুন।' if lang=='bn' else 'Manage listings, visit schedules and booking requests.' }}</span></span><i class="fa-solid fa-arrow-up-right-from-square sr-feature-arrow"></i></a>
+    {% elif current_user.role=='admin' %}
+    <a class="sr-feature" href="/admin"><span class="sr-feature-icon sr-feature-blue"><i class="fa-solid fa-shield-halved"></i></span><span class="sr-feature-text"><small>02 / {{ 'অ্যাডমিন' if lang=='bn' else 'ADMIN' }}</small><strong>{{ 'বিজ্ঞাপন যাচাই করুন' if lang=='bn' else 'Review property approvals' }}</strong><span>{{ 'পরিচয়, পরিদর্শন ও রিপোর্টের সিদ্ধান্ত পরিচালনা করুন।' if lang=='bn' else 'Handle verification, moderation and scam reports.' }}</span></span><i class="fa-solid fa-arrow-up-right-from-square sr-feature-arrow"></i></a>
+    {% endif %}
+    {% if not current_user or current_user.role == 'student' %}
+    <a class="sr-feature" href="{{ '/fair-rent' if current_user else '/login?next=/fair-rent' }}"><span class="sr-feature-icon sr-feature-amber"><i class="fa-solid fa-scale-balanced"></i></span><span class="sr-feature-text"><small>03 / {{ 'ভাড়া' if lang=='bn' else 'RENT ESTIMATE' }}</small><strong>{{ 'ভাড়া বুঝে সিদ্ধান্ত নিন' if lang=='bn' else 'Compare an estimated rent' }}</strong><span>{{ 'নিয়মভিত্তিক আনুমানিক হিসাব দিয়ে চাওয়া ভাড়া তুলনা করুন।' if lang=='bn' else 'Use a rule-based estimate as a starting point for comparison.' }}</span></span><i class="fa-solid fa-arrow-up-right-from-square sr-feature-arrow"></i></a>
+    {% elif current_user.role == 'landlord' %}
+    <a class="sr-feature" href="/maintenance"><span class="sr-feature-icon sr-feature-amber"><i class="fa-solid fa-screwdriver-wrench"></i></span><span class="sr-feature-text"><small>03 / {{ 'মেরামত' if lang=='bn' else 'MAINTENANCE' }}</small><strong>{{ 'ভাড়াটিয়ার অনুরোধ' if lang=='bn' else 'Resolve maintenance requests' }}</strong><span>{{ 'মেরামতের অভিযোগ দেখুন এবং সমাধানের অবস্থা জানান।' if lang=='bn' else 'Track tenant issues and update their resolution.' }}</span></span><i class="fa-solid fa-arrow-up-right-from-square sr-feature-arrow"></i></a>
+    {% else %}
+    <a class="sr-feature" href="/admin"><span class="sr-feature-icon sr-feature-amber"><i class="fa-solid fa-clipboard-check"></i></span><span class="sr-feature-text"><small>03 / {{ 'রিপোর্ট' if lang=='bn' else 'REPORTS' }}</small><strong>{{ 'নিরাপত্তা ও রিপোর্ট' if lang=='bn' else 'Moderate reports' }}</strong><span>{{ 'রিপোর্ট করা বিজ্ঞাপন পর্যালোচনা করুন।' if lang=='bn' else 'Review flagged listings and moderation decisions.' }}</span></span><i class="fa-solid fa-arrow-up-right-from-square sr-feature-arrow"></i></a>
+    {% endif %}
+  </div>
+  <div class="sr-section-header sr-section-with-action"><div><span class="sr-section-kicker">{{ 'নতুন বাসা' if lang=='bn' else 'EXPLORE HOMES' }}</span><h2>{{ 'পছন্দ হতে পারে এমন বাসা' if lang=='bn' else 'Housing worth exploring' }}</h2><p>{{ 'প্রকাশিত বিজ্ঞাপন থেকে কিছু বাসা দেখুন।' if lang=='bn' else 'A few recently available options to get you started.' }}</p></div><a class="sr-text-link" href="/listings">{{ 'সব বাসা দেখুন' if lang=='bn' else 'Browse all housing' }} <i class="fa-solid fa-arrow-right"></i></a></div>
+  <div class="sr-home-property-grid">
+    {% for listing in listings[:3] %}
+    {% set photos = listing.photos|from_json %}
+    <a href="/listings/{{ listing.id }}" class="sr-property-preview">
+      <div class="sr-property-preview-photo"><img src="{{ photos[0] if photos else 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800' }}" alt="{{ tr_listing(listing, "title") }}" loading="lazy"><span>{{ ({"Mess Seat":"মেস সিট", "Single Room":"সিঙ্গেল রুম", "Bachelor Flat":"ব্যাচেলর ফ্ল্যাট", "Shared Room":"শেয়ার রুম", "Apartment":"ফ্ল্যাট"}.get(listing.property_type, listing.property_type) if lang=="bn" else listing.property_type) }}</span></div>
+      <div class="sr-property-preview-body"><small><i class="fa-solid fa-location-dot"></i> {{ tr_enum(listing.area) }} · {{ listing.distance_km }} km {{ 'ক্যাম্পাস থেকে' if lang=='bn' else 'from campus' }}</small><h3>{{ tr_listing(listing, "title") }}</h3><div class="sr-property-preview-bottom"><span><strong>৳{{ '{:,}'.format(listing.rent_amount) }}</strong><small>{{ ' / মাস' if lang=='bn' else ' / month' }}</small></span><span class="sr-preview-view">{{ 'দেখুন' if lang=='bn' else 'Details' }} <i class="fa-solid fa-arrow-right"></i></span></div></div>
+    </a>
+    {% else %}
+    <div class="sr-empty-state"><i class="fa-solid fa-house-user"></i><h2>{{ 'এখনো প্রকাশিত বিজ্ঞাপন নেই' if lang=='bn' else 'No published housing yet' }}</h2><p>{{ 'নতুন বাসা অনুমোদন হলে এখানে দেখাবে।' if lang=='bn' else 'Approved listings will appear here.' }}</p></div>
+    {% endfor %}
+  </div>
+  {% if not current_user or current_user.role=='landlord' %}
+  <div class="sr-home-cta"><div><span>{{ 'নতুন বাসা বিজ্ঞাপন দিতে চান?' if lang=='bn' else 'Have a room or property to rent?' }}</span><h2>{{ 'শিক্ষার্থীদের কাছে পৌঁছান' if lang=='bn' else 'Help students find a place to stay' }}</h2><p>{{ 'বাড়ির মালিকদের জন্য সহজ বিজ্ঞাপন ব্যবস্থাপনা। নতুন বিজ্ঞাপন অ্যাডমিন অনুমোদনের পরে প্রকাশিত হবে।' if lang=='bn' else 'Manage your properties and student requests in one place. Approved listings appear publicly.' }}</p></div><a href="{{ '/landlord' if current_user else '/register' }}">{{ ('আমার প্রপার্টি খুলুন' if lang=='bn' else 'Open landlord dashboard') if current_user else ('মালিক হিসেবে অ্যাকাউন্ট খুলুন' if lang=='bn' else 'Register as a landlord') }} <i class="fa-solid fa-arrow-right"></i></a></div>
+  {% elif current_user.role=='student' %}
+  <div class="sr-home-cta"><div><span>{{ 'আপনার পরবর্তী ধাপ' if lang=='bn' else 'Your next step' }}</span><h2>{{ 'ভিজিট ও বুকিং এক জায়গায়' if lang=='bn' else 'Track your next home' }}</h2><p>{{ 'ভিজিটের তারিখ, বুকিংয়ের অনুরোধ এবং মালিকের সিদ্ধান্ত দেখুন।' if lang=='bn' else 'See your visit schedule, requests, and landlord decisions.' }}</p></div><a href="/my-bookings">{{ 'আমার বুকিং দেখুন' if lang=='bn' else 'View my bookings' }} <i class="fa-solid fa-arrow-right"></i></a></div>
+  {% elif current_user.role=='admin' %}
+  <div class="sr-home-cta"><div><span>{{ 'মডারেশন' if lang=='bn' else 'MODERATION' }}</span><h2>{{ 'রিপোর্ট ও অনুমোদন পরীক্ষা করুন' if lang=='bn' else 'Review reports and approvals' }}</h2><p>{{ 'আলাদা Admin Panel-এ যাচাই ও রিপোর্ট পরিচালনা করুন।' if lang=='bn' else 'Manage property verification and reports in your admin dashboard.' }}</p></div><a href="/admin">{{ 'অ্যাডমিন ড্যাশবোর্ড' if lang=='bn' else 'Admin dashboard' }} <i class="fa-solid fa-arrow-right"></i></a></div>
+  {% endif %}
+</section>
+{% endblock %}

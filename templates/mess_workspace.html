@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'আমার মেসের হিসাব | SmartRent BD' if lang=='bn' else 'My mess ledger | SmartRent BD' }}{% endblock %}
+{% block content %}
+<style>
+.sr-main .sr-mess-how{margin:0 0 22px;padding:16px 20px;background:#eef8f2;border:1px solid #cde5d6;border-radius:14px;line-height:1.7}
+.sr-main .sr-mess-how strong{display:block;color:#0b6c4a;font-size:13px}
+.sr-main .sr-mess-how strong i{margin-right:6px}
+.sr-main .sr-mess-how p{font-size:12px;color:#385f4c;margin:6px 0}
+.sr-main .sr-mess-how small{color:#197553;font-size:11px;font-weight:750}
+</style>
+<div class="sr-feature-wrap">
+  <header class="sr-feature-header"><div class="sr-feature-kicker"><i class="fa-solid fa-utensils"></i> {{ 'নিজেদের মেস, নিজেদের হিসাব' if lang=='bn' else 'Your mess, your records' }}</div>
+    <h1>{{ 'মেসের মিল ও খরচের হিসাব' if lang=='bn' else 'Mess meals & expense manager' }}</h1>
+    <p>{{ 'আপনার মেসে যোগ দিন বা নতুন মেস তৈরি করুন। অন্য মেসের তথ্য এখানে দেখা যাবে না।' if lang=='bn' else 'Join or create a private mess group. Each group has its own records and monthly settlement.' }}</p></header>
+  <aside class="sr-mess-how" role="note">
+    <strong><i class="fa-solid fa-circle-info" aria-hidden="true"></i> {{ 'এই মেস ব্যবস্থাপনায় কী করতে পারবেন?' if lang=='bn' else 'What can you do here?' }}</strong>
+    <p>{{ 'একসঙ্গে থাকা শিক্ষার্থীরা প্রতিদিনের মিল, বাজারের খরচ, বিদ্যুৎ-পানির বিল ও কার কত টাকা দেওয়া বা পাওনা—এক জায়গায় হিসাব রাখতে পারবেন। এখানে কোনো বাস্তব টাকা পাঠানো হয় না।' if lang=='bn' else 'Students sharing a mess can record meals, grocery expenses, shared utility bills and each member’s monthly balance. No real payments are made here.' }}</p>
+    <small>{{ '১. মেস তৈরি/যোগ দিন → ২. হিসাব যোগ করুন → ৩. মাসিক রিপোর্ট দেখুন' if lang=='bn' else '1. Create/join a group → 2. Record entries → 3. Check the monthly report' }}</small>
+  </aside>
+  {% if not mess %}
+  <div class="sr-feature-two">
+    <section class="sr-feature-card"><h2>{{ 'নতুন মেস তৈরি করুন' if lang=='bn' else 'Create a mess group' }}</h2>
+      <form class="sr-feature-form" onsubmit="submitMess(event,'/api/mess/create')">
+        <label>{{ 'মেসের নাম' if lang=='bn' else 'Mess name' }}<input name="name" required minlength="3" maxlength="100" placeholder="e.g. Campus Friends Mess"></label>
+        <label>{{ 'ঠিকানা' if lang=='bn' else 'Address' }}<input name="address" required minlength="3" maxlength="180" placeholder="Bogura, Bangladesh"></label>
+        <label>{{ 'আপনার সিট ভাড়া (৳)' if lang=='bn' else 'Your seat rent (৳)' }}<input type="number" name="seat_rent" min="0" max="100000" value="0" required></label>
+        <button class="sr-feature-primary" type="submit">{{ 'মেস তৈরি করুন' if lang=='bn' else 'Create group' }}</button>
+      </form>
+    </section>
+    <section class="sr-feature-card"><h2>{{ 'বিদ্যমান মেসে যোগ দিন' if lang=='bn' else 'Join an existing group' }}</h2>
+      <p class="sr-feature-subtle">{{ 'মেস ম্যানেজারের কাছ থেকে Join Code নিন।' if lang=='bn' else 'Ask the manager for a private join code.' }}</p>
+      <form class="sr-feature-form" onsubmit="submitMess(event,'/api/mess/join')">
+       <label>{{ 'Join Code' if lang=='bn' else 'Join code' }}<input name="join_code" required autocomplete="off" placeholder="Join code"></label>
+       <label>{{ 'আপনার সিট ভাড়া (৳)' if lang=='bn' else 'Your seat rent (৳)' }}<input type="number" name="seat_rent" min="0" max="100000" value="0" required></label>
+       <button class="sr-feature-primary" type="submit">{{ 'মেসে যোগ দিন' if lang=='bn' else 'Join group' }}</button>
+      </form>
+    </section>
+  </div>
+  {% else %}
+   <div class="sr-feature-card sr-mess-info">
+     <div><div class="sr-feature-kicker">{{ 'আপনার মেস' if lang=='bn' else 'Your group' }}</div><h2>{{ mess.name }}</h2><p>{{ mess.address }}</p></div>
+     {% if mess.is_manager %}<div class="sr-mess-code"><span>{{ 'গোপন Join Code • সদস্যদের দিন' if lang=='bn' else 'Private member join code' }}</span><strong id="mess-code">{{ mess.join_code }}</strong><button class="sr-feature-quiet" type="button" onclick="copyMessJoinCode(this)">{{ 'কপি করুন' if lang=='bn' else 'Copy code' }}</button></div>{% endif %}
+   </div>
+   <div class="sr-mess-stat-grid">
+    <div class="sr-feature-card"><span>{{ 'মোট মিল' if lang=='bn' else 'Meals recorded' }}</span><strong>{{ total_meals }}</strong></div>
+    <div class="sr-feature-card"><span>{{ 'বাজার খরচ' if lang=='bn' else 'Bazaar cost' }}</span><strong>৳{{ '{:,}'.format(total_bazaar) }}</strong></div>
+    <div class="sr-feature-card"><span>{{ 'ইউটিলিটি' if lang=='bn' else 'Utilities' }}</span><strong>৳{{ '{:,}'.format(total_utility) }}</strong></div>
+    <div class="sr-feature-card"><span>{{ 'মিল রেট' if lang=='bn' else 'Meal rate' }}</span><strong>৳{{ meal_rate }}</strong></div>
+   </div>
+   <div class="sr-feature-two">
+    <section class="sr-feature-card"><h2>{{ 'নতুন হিসাব যোগ করুন' if lang=='bn' else 'Record a new entry' }}</h2>
+      <form class="sr-feature-form" onsubmit="submitMess(event,'/api/mess/record')">
+       <label>{{ 'কী ধরনের হিসাব?' if lang=='bn' else 'Entry type' }}<select name="kind" id="entryKind"><option value="meal">{{ 'মিল সংখ্যা' if lang=='bn' else 'Meal count' }}</option><option value="bazaar">{{ 'বাজার (৳)' if lang=='bn' else 'Bazaar cost (৳)' }}</option><option value="utility">{{ 'ইউটিলিটি বিল (৳)' if lang=='bn' else 'Utility cost (৳)' }}</option></select></label>
+       <label>{{ 'সংখ্যা / টাকার পরিমাণ' if lang=='bn' else 'Meal count / amount' }}<input type="number" name="amount" min="0" max="100000" value="1" required></label>
+       <label>{{ 'তারিখ' if lang=='bn' else 'Date' }}<input type="date" name="entry_date" value="{{ today }}" required></label>
+       <label>{{ 'বিবরণ (ঐচ্ছিক)' if lang=='bn' else 'Note (optional)' }}<input type="text" name="memo" maxlength="180" placeholder="{{ 'যেমন: সকালের বাজার' if lang=='bn' else 'e.g. Grocery shopping' }}"></label>
+       <button type="submit" class="sr-feature-primary">{{ 'হিসাব সংরক্ষণ করুন' if lang=='bn' else 'Save record' }}</button>
+      </form>
+    </section>
+    <section class="sr-feature-card"><h2>{{ 'মাসিক রিপোর্ট' if lang=='bn' else 'Monthly statement' }}</h2>
+      <form class="sr-feature-month" action="/mess-manager" method="get"><label>{{ 'মাস নির্বাচন' if lang=='bn' else 'Report month' }}<input type="month" name="month" value="{{ month }}" required></label><button type="submit" class="sr-feature-secondary">{{ 'রিপোর্ট দেখুন' if lang=='bn' else 'View month' }}</button></form>
+      <p class="sr-feature-note">{{ 'প্রতি সদস্যের জমা বাজার/ইউটিলিটির টাকা থেকে মিল ও ইউটিলিটি খরচ বাদ দিয়ে ব্যালেন্স দেখানো হয়েছে। সিট ভাড়া মোট প্রদেয় হিসাবের অংশ; এটি অনলাইনে পরিশোধ হয় না।' if lang=='bn' else 'Balance = paid bazaar/utility expenses minus meal and utility shares. Seat rent is shown as an obligation, not an online payment.' }}</p>
+      <div class="sr-feature-table-wrap"><table class="sr-feature-table"><thead><tr><th>{{ 'সদস্য' if lang=='bn' else 'Member' }}</th><th>{{ 'মিল' if lang=='bn' else 'Meals' }}</th><th>{{ 'মোট প্রদেয়' if lang=='bn' else 'Total due' }}</th><th>{{ 'ব্যালেন্স*' if lang=='bn' else 'Balance*' }}</th></tr></thead><tbody>
+      {% for m in members %}<tr><td><strong>{{ m.member_name }}</strong><small>৳{{ m.seat_rent }} {{ 'সিট' if lang=='bn' else 'seat' }}</small></td><td>{{ m.meals }}</td><td>৳{{ '{:,.0f}'.format(m.total_cost) }}</td><td class="{{ 'sr-positive' if m.balance>=0 else 'sr-negative' }}">৳{{ '{:,.0f}'.format(m.balance) }}</td></tr>{% endfor %}
+      </tbody></table></div>
+    </section>
+   </div>
+   <section class="sr-feature-card"><div class="sr-feature-header-row"><h2>{{ 'এই মাসের এন্ট্রি' if lang=='bn' else 'Entries for this month' }}</h2><button onclick="window.print()" class="sr-feature-secondary"><i class="fa-solid fa-print"></i> {{ 'প্রিন্ট' if lang=='bn' else 'Print' }}</button></div>
+     <div class="sr-feature-table-wrap"><table class="sr-feature-table"><thead><tr><th>{{ 'তারিখ' if lang=='bn' else 'Date' }}</th><th>{{ 'সদস্য' if lang=='bn' else 'Member' }}</th><th>{{ 'ধরন' if lang=='bn' else 'Type' }}</th><th>{{ 'পরিমাণ' if lang=='bn' else 'Amount' }}</th><th>{{ 'বিবরণ' if lang=='bn' else 'Note' }}</th></tr></thead><tbody>
+     {% for e in ledger %}<tr><td>{{ e.entry_date }}</td><td>{{ e.member_name }}</td><td>{{ ('মিল' if e.kind=='meal' else 'বাজার' if e.kind=='bazaar' else 'ইউটিলিটি') if lang=='bn' else e.kind|title }}</td><td>{{ e.amount }}</td><td>{{ e.memo }}</td></tr>{% else %}<tr><td colspan="5">{{ 'এই মাসে কোনো হিসাব নেই।' if lang=='bn' else 'No records for this month.' }}</td></tr>{% endfor %}
+     </tbody></table></div>
+   </section>
+   <p class="sr-feature-note">{{ 'শুধু একই মেসের সদস্যরা হিসাব দেখতে পারে। এক মেসের তথ্য অন্য মেসে দেখা যায় না।' if lang=='bn' else 'Only members of this mess can see this ledger. No real payments are made.' }}</p>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+
+async function copyMessJoinCode(button) {
+  const codeNode = document.getElementById('mess-code');
+  const code = codeNode ? codeNode.textContent.trim() : '';
+  const bangla = document.documentElement.lang === 'bn';
+  if (!code) {
+    showNotification(bangla ? 'কপি করা যায়নি' : 'Copy failed',
+      bangla ? 'Join Code পাওয়া যায়নি।' : 'Join code was not found.', 'error');
+    return;
+  }
+  let copied = false;
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(code);
+      copied = true;
+    } catch (error) {
+      // Fall back when clipboard access is blocked.
+    }
+  }
+  if (!copied) {
+    const helper = document.createElement('textarea');
+    helper.value = code;
+    helper.setAttribute('readonly', '');
+    helper.setAttribute('aria-hidden', 'true');
+    helper.style.position = 'fixed';
+    helper.style.opacity = '0';
+    helper.style.pointerEvents = 'none';
+    document.body.appendChild(helper);
+    helper.focus();
+    helper.select();
+    try {
+      copied = document.execCommand('copy');
+    } catch (error) {
+      copied = false;
+    }
+    helper.remove();
+  }
+  if (copied) {
+    showNotification(bangla ? 'কপি হয়েছে' : 'Copied',
+      bangla ? 'Join Code সদস্যকে পাঠাতে পারো।' : 'Share the join code with your group member.');
+    const previousText = button.textContent;
+    button.textContent = bangla ? 'কপি হয়েছে ✓' : 'Copied ✓';
+    window.setTimeout(() => { button.textContent = previousText; }, 1800);
+  } else {
+    showNotification(bangla ? 'কপি করা যায়নি' : 'Copy failed',
+      bangla ? 'Code Select করে Ctrl+C চাপো।' : 'Select the code and press Ctrl+C.', 'error');
+  }
+}
+
+async function submitMess(e,url){e.preventDefault();const button=e.target.querySelector('[type="submit"]');button.disabled=true;
+ try{await checkedApiFetch(url,{method:'POST',body:new FormData(e.target)});location.reload();}
+ catch(err){showNotification('Error',err.message,'error');button.disabled=false;}}
+</script>
+{% endblock %}

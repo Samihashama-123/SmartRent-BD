@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'বাসা তুলনা | SmartRent BD' if lang=='bn' else 'Compare homes | SmartRent BD' }}{% endblock %}
+{% block content %}
+<div class="sr-feature-wrap">
+  <header class="sr-feature-header"><div class="sr-feature-kicker"><i class="fa-solid fa-scale-balanced"></i> {{ 'সিদ্ধান্ত নিতে সাহায্য' if lang=='bn' else 'Make a confident choice' }}</div>
+    <h1>{{ 'পাশাপাশি বাসা তুলনা করুন' if lang=='bn' else 'Compare homes side by side' }}</h1>
+    <p>{{ 'সর্বোচ্চ ৩টি অনুমোদিত বাসার ভাড়া, দূরত্ব ও সুবিধা একসঙ্গে দেখুন।' if lang=='bn' else 'Compare the rent, distance and amenities of up to three approved homes.' }}</p>
+  </header>
+  {% if not properties %}
+    <div class="sr-feature-card sr-feature-empty"><i class="fa-solid fa-house-circle-check"></i>
+      <h2>{{ 'তুলনার তালিকা এখনো খালি' if lang=='bn' else 'Your comparison is empty' }}</h2>
+      <p>{{ 'বাসা খোঁজার পেজ থেকে পছন্দের বাসা যোগ করুন।' if lang=='bn' else 'Add the properties you like from Find Housing.' }}</p>
+      <a class="sr-feature-primary" href="/listings">{{ 'বাসা খুঁজুন' if lang=='bn' else 'Find housing' }} <i class="fa-solid fa-arrow-right"></i></a>
+    </div>
+  {% else %}
+    <div class="sr-compare-grid" style="--count:{{ properties|length }}">
+      {% for p in properties %}
+      {% set fac=p.facilities|from_json %}
+      {% set pics=p.photos|from_json %}
+      <article class="sr-feature-card sr-compare-card">
+        <img class="sr-compare-photo" src="{{ pics[0] if pics else '' }}" alt="{{ tr_listing(p,'title') }}" loading="lazy">
+        <div class="sr-compare-body">
+          <span class="sr-feature-kicker"><i class="fa-solid fa-location-dot"></i> {{ tr_enum(p.area) }}</span>
+          <h2>{{ tr_listing(p,'title') }}</h2>
+          <div class="sr-compare-price">৳{{ '{:,}'.format(p.rent_amount) }} <small>/ {{ 'মাস' if lang=='bn' else 'month' }}</small></div>
+          <dl class="sr-compare-data">
+            <div><dt>{{ 'জামানত' if lang=='bn' else 'Deposit' }}</dt><dd>৳{{ '{:,}'.format(p.deposit_amount) }}</dd></div>
+            <div><dt>{{ 'বাসার ধরন' if lang=='bn' else 'Type' }}</dt><dd>{{ tr_enum(p.property_type) }}</dd></div>
+            <div><dt>{{ 'ক্যাম্পাস থেকে' if lang=='bn' else 'Campus distance' }}</dt><dd>{{ p.distance_km }} km</dd></div>
+            <div><dt>{{ 'কার জন্য' if lang=='bn' else 'Gender policy' }}</dt><dd>{{ tr_enum(p.gender_policy) }}</dd></div>
+            <div><dt>{{ 'পাওয়া যাবে' if lang=='bn' else 'Available' }}</dt><dd>{{ p.availability_date }}</dd></div>
+            <div><dt>{{ 'ওয়াই-ফাই' if lang=='bn' else 'Wi-Fi' }}</dt><dd>{{ '✓' if 'wifi' in fac else '—' }}</dd></div>
+            <div><dt>{{ 'ব্যাকআপ পাওয়ার' if lang=='bn' else 'Power backup' }}</dt><dd>{{ '✓' if 'generator' in fac else '—' }}</dd></div>
+            <div><dt>{{ 'খাবার' if lang=='bn' else 'Meals' }}</dt><dd>{{ '✓' if 'meals' in fac else '—' }}</dd></div>
+          </dl>
+          <a class="sr-feature-primary" href="/listings/{{ p.id }}">{{ 'বিস্তারিত দেখুন' if lang=='bn' else 'View property' }}</a>
+          <a class="sr-feature-secondary" href="/living-cost?listing_id={{ p.id }}">{{ 'মাসিক মোট খরচ' if lang=='bn' else 'Calculate total cost' }}</a>
+          <button class="sr-feature-quiet" onclick="toggleCompare({{ p.id }},this)">{{ 'তালিকা থেকে সরান' if lang=='bn' else 'Remove from comparison' }}</button>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    <p class="sr-feature-note">{{ 'দূরত্ব ও সুবিধার তথ্য বিজ্ঞাপনদাতার দেওয়া; সরাসরি যাচাই করুন।' if lang=='bn' else 'Distance and facilities are owner-submitted and should be verified before committing.' }}</p>
+    <a href="/listings" class="sr-feature-text-link"><i class="fa-solid fa-plus"></i> {{ 'আরও বাসা দেখুন' if lang=='bn' else 'Explore more homes' }}</a>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function toggleCompare(id,button){
+ button.disabled=true;
+ try{const data=new FormData();data.append('listing_id',id);
+ await checkedApiFetch('/api/compare/toggle',{method:'POST',body:data}); location.reload();
+ }catch(e){button.disabled=false;showNotification('Error',e.message,'error');}
+}
+</script>
+{% endblock %}

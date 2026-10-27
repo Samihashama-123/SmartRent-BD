@@ -1,0 +1,636 @@
+{% extends "base.html" %}
+
+{% block title %}Search & Map View - SmartRent BD{% endblock %}
+
+{% block extra_head %}
+<style>
+    #map {
+        height: 480px;
+        width: 100%;
+        border-radius: 1rem;
+        z-index: 10;
+    }
+    .leaflet-popup-content-wrapper {
+        border-radius: 12px;
+        padding: 4px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+    }
+    .custom-price-pin {
+        background: #059669;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 11px;
+        border: 2px solid white;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.25);
+        white-space: nowrap;
+        text-align: center;
+    }
+
+    /* University selector: always-visible, real editable text field. */
+    .sr-university-filter .sr-university-preset {
+        display:block; width:100%; margin-bottom:11px;
+        background:#f8fcf9; color:#214438; border:1px solid #d6e6dc;
+        border-radius:11px; min-height:44px; padding:10px 12px;
+    }
+    .sr-university-typed-label {display:block;font-weight:700;color:#3e6352;margin-bottom:7px;line-height:1.6}
+    .sr-university-entry {display:flex;align-items:stretch;gap:7px;min-width:0}
+    .sr-university-entry input[type="text"] {
+        flex:1 1 auto;min-width:0;width:100%;
+        border:1px solid #d6e6dc;border-radius:10px;
+        background:#fff;color:#173a2e;font-size:13px;
+        min-height:44px;padding:9px 11px;
+    }
+    .sr-university-entry button[type="submit"] {
+        flex:0 0 auto;display:inline-flex;justify-content:center;align-items:center;
+        gap:6px;min-height:44px;padding:8px 11px;border-radius:10px;
+        background:#047f5d;color:#fff;font-weight:800;white-space:nowrap;
+    }
+    .sr-university-entry button[type="submit"]:hover {background:#036d50}
+    .sr-university-entry input[type="text"]:focus {border-color:#059669;outline:2px solid #b7ead3;outline-offset:1px}
+    /* Exact vertical centering for the housing card action buttons. */
+    .sr-listing-price-action {gap:10px;flex-wrap:wrap}
+    .sr-listing-price-action .sr-inline-actions {display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:7px}
+    .sr-listing-price-action .sr-mini-action {
+        display:inline-flex;align-items:center;justify-content:center;
+        min-height:42px;line-height:1.45;text-align:center;
+    }
+    .sr-listing-price-action .sr-listing-view-cta {
+        display:inline-flex!important;align-items:center!important;
+        justify-content:center!important;min-height:42px;
+        padding:9px 14px!important;line-height:1.45!important;
+        text-align:center;white-space:normal;
+    }
+    @media(max-width:430px) {
+        .sr-university-entry {flex-direction:column}
+        .sr-university-entry button[type="submit"] {width:100%}
+        .sr-listing-price-action .sr-inline-actions {width:100%;justify-content:flex-start}
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <!-- Header with Breadcrumbs & Saved Search Alert CTA -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+            <div class="flex items-center space-x-2 text-xs text-slate-500 mb-1">
+                <a href="/?role={{ (current_user.role if current_user else 'guest') }}" class="hover:text-emerald-600">Home</a>
+                <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                <span class="text-slate-800 font-medium">Explore Accommodations</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 flex items-center gap-2">
+                <span>{{ "ক্যাম্পাসের বাসা ও মেস খুঁজুন" if lang=="bn" else "Find campus housing" }}</span>
+                <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-full">
+                    {{ listings|length }} {{ "টি বাসা" if lang=="bn" else "homes" }}
+                </span>
+            </h1>
+        </div>
+
+        <!-- Action Buttons: Save Search Alert + Map Toggle -->
+        <div class="flex items-center space-x-2">
+            {% if not current_user or current_user.role in ['student','landlord'] %}
+            <a href="{{ '/compare' if current_user else '/login?next=/compare' }}" class="sr-mini-action"><i class="fa-solid fa-scale-balanced"></i> {{ 'তুলনার তালিকা' if lang=='bn' else 'Compare selected' }}</a>
+            {% endif %}
+            {% if not current_user or current_user.role=='student' %}
+            <button onclick="{{ 'openSaveSearchModal()' if current_user else "window.location.href='/login?next=/listings'" }}" class="bg-white border border-slate-300 hover:border-emerald-500 text-slate-700 hover:text-emerald-700 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-sm">
+                <i class="fa-solid fa-bell text-amber-500"></i>
+                <span>{{ 'নতুন বাসার অ্যালার্ট চালু করুন' if lang=='bn' else 'Save search & get alerts' }}</span>
+            </button>
+            {% endif %}
+            <button onclick="toggleMap()" id="mapToggleBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-sm">
+                <i class="fa-solid fa-map-location-dot"></i>
+                <span id="mapToggleText">Hide Map View</span>
+            </button>
+        </div>
+    </div>
+
+    <nav class="sr-city-shortcuts" aria-label="{{ 'শহর অনুযায়ী বাসা খুঁজুন' if lang=='bn' else 'Find properties by city' }}">
+        <span><i class="fa-solid fa-location-dot"></i> {{ 'শহর:' if lang=='bn' else 'Cities:' }}</span>
+        <a href="/listings?area=Bogura" {% if req_params.area in ('Bogura','বগুড়া','বগুড়া') %}aria-current="true"{% endif %}>{{ 'বগুড়া' if lang=='bn' else 'Bogura' }}</a>
+        <a href="/listings?area=Rajshahi" {% if req_params.area in ('Rajshahi','রাজশাহী') %}aria-current="true"{% endif %}>{{ 'রাজশাহী' if lang=='bn' else 'Rajshahi' }}</a>
+        <a href="/listings?area=Dhaka" {% if req_params.area in ('Dhaka','ঢাকা') %}aria-current="true"{% endif %}>{{ 'ঢাকা' if lang=='bn' else 'Dhaka' }}</a>
+        <small>{{ 'শুধু অ্যাডমিন অনুমোদিত বাসা দেখানো হয়।' if lang=='bn' else 'Only approved housing is shown.' }}</small>
+    </nav>
+
+    {% if (current_user.role if current_user else 'guest') == 'student' %}
+    <div class="sr-journey-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>{{ 'কীভাবে বুক করবেন? পছন্দের বাসার বিস্তারিত দেখুন → ভিজিটের অনুরোধ পাঠান → মালিক সময় নির্ধারণ করবেন → বুকিং অনুরোধ → মালিক নিশ্চিত করবেন।' if lang=='bn' else 'How to book: open a property → request a visit → owner schedules it → request a booking → owner confirms.' }}</span><a href="/my-bookings">{{ 'আমার বুকিং দেখুন' if lang=='bn' else 'Track my bookings' }} <i class="fa-solid fa-arrow-right"></i></a></div>
+    {% endif %}
+
+    <!-- Interactive Leaflet Map Section -->
+    <div id="mapContainer" class="mb-8 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm transition-all">
+        <div class="flex items-center justify-between px-2 py-1.5 mb-2 text-xs text-slate-600">
+            <div class="flex items-center space-x-4">
+                <span class="font-bold flex items-center text-slate-800">
+                    <i class="fa-solid fa-map-pin text-emerald-600 mr-1.5"></i> Interactive Campus Map View
+                </span>
+                <span class="hidden sm:inline text-slate-400">|</span>
+                <span class="hidden sm:inline"><span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 mr-1"></span> Approved listing</span>
+                <span class="hidden sm:inline"><span class="inline-block w-2.5 h-2.5 rounded-full bg-indigo-500 mr-1"></span> Campus Gate</span>
+            </div>
+            <div class="text-[11px] text-slate-500">Click any pin to inspect rent & walk distance</div>
+        </div>
+        <div class="sr-map-search-area">
+          <form id="mapPlaceForm" class="sr-map-search" autocomplete="off">
+            <label class="sr-visually-hidden" for="mapPlaceInput">{{ 'মানচিত্রে এলাকা খুঁজুন' if lang=='bn' else 'Search for a place on the map' }}</label>
+            <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+            <input type="search" id="mapPlaceInput" placeholder="{{ 'যেমন: মাটিডালি, বগুড়া' if lang=='bn' else 'e.g. Matidali, Bogura' }}" required minlength="2" maxlength="150">
+            <button type="submit" id="mapPlaceBtn"><i class="fa-solid fa-magnifying-glass"></i> {{ 'মানচিত্রে খুঁজুন' if lang=='bn' else 'Find on map' }}</button>
+          </form>
+          <div class="sr-map-quick-locations" aria-label="{{ 'দ্রুত মানচিত্র খোঁজ' if lang=='bn' else 'Quick map locations' }}">
+            <span>{{ 'এলাকা:' if lang=='bn' else 'Try:' }}</span>
+            <button type="button" class="sr-map-chip" data-place="Bogura, Bangladesh">{{ 'বগুড়া' if lang=='bn' else 'Bogura' }}</button>
+            <button type="button" class="sr-map-chip" data-place="Rajshahi, Bangladesh">{{ 'রাজশাহী' if lang=='bn' else 'Rajshahi' }}</button>
+            <button type="button" class="sr-map-chip" data-place="Dhaka, Bangladesh">{{ 'ঢাকা' if lang=='bn' else 'Dhaka' }}</button>
+            <button type="button" class="sr-map-chip" id="showListingPins">{{ 'সব বাসার পিন' if lang=='bn' else 'Show property pins' }}</button>
+          </div>
+          <p class="sr-map-status" id="mapSearchStatus" role="status" aria-live="polite">{{ 'যেকোনো বাংলাদেশের এলাকা খুঁজতে পারেন। শুধু প্রকাশিত বাসার পিন মানচিত্রে দেখা যাবে।' if lang=='bn' else 'Search anywhere in Bangladesh. Only published housing with coordinates has property pins.' }}</p>
+        </div>
+        <div id="map" aria-label="{{ 'বাংলাদেশের আবাসন মানচিত্র' if lang=='bn' else 'Bangladesh housing map' }}"></div>
+        <p class="sr-map-disclaimer"><i class="fa-solid fa-circle-info"></i> {{ 'ম্যাপের পিন বিজ্ঞাপনদাতার দেওয়া অবস্থান; স্বাধীনভাবে যাচাই করা হয়নি। শহর খুঁজলে সেখানে বাসা আছে, এমন নিশ্চয়তা নেই।' if lang=='bn' else 'Pins reflect owner-provided coordinates and are not independently verified. A city search does not guarantee listings there.' }}</p>
+    </div>
+
+    <!-- Main Content Layout: Sidebar Filters + Cards Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        
+        <!-- Filter Sidebar Form -->
+        <div class="lg:col-span-1">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm sticky top-28">
+                <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                    <h2 class="text-sm font-extrabold text-slate-900 flex items-center">
+                        <i class="fa-solid fa-sliders text-emerald-600 mr-2"></i> {{ 'ফিল্টার' if lang=='bn' else 'Filters' }}
+                    </h2>
+                    <a href="/listings?role={{ (current_user.role if current_user else 'guest') }}" class="text-xs text-slate-400 hover:text-emerald-600 font-medium">{{ 'সব সরান' if lang=='bn' else 'Reset all' }}</a>
+                </div>
+
+                <form action="/listings" method="GET" class="space-y-4 text-xs">
+                    <div><label for="area-search" class="block font-bold text-slate-700 mb-1.5">{{ 'এলাকা খুঁজুন' if lang=='bn' else 'Search area' }}</label><input id="area-search" name="area" value="{{ req_params.area or '' }}" placeholder="{{ 'যেমন: বগুড়া, মাটিডালি বা ধানমন্ডি' if lang=='bn' else 'e.g. Bogura, Matidali or Dhanmondi' }}" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5"></div>
+                    <input type="hidden" name="role" value="{{ (current_user.role if current_user else 'guest') }}">
+
+                    <!-- University preset is optional. The actual GET field is always editable. -->
+                    <div class="sr-university-filter">
+                        <label for="srUniversityPreset" class="block font-bold text-slate-700 mb-1.5">
+                          {{ 'বিশ্ববিদ্যালয় / কলেজ' if lang=='bn' else 'University / college' }}
+                        </label>
+                        <select id="srUniversityPreset" class="sr-university-preset" aria-label="{{ 'পরিচিত বিশ্ববিদ্যালয় বেছে নিন (ঐচ্ছিক)' if lang=='bn' else 'Choose a suggested university (optional)' }}">
+                            <option value="">{{ 'তালিকা থেকে বাছুন (ঐচ্ছিক)' if lang=='bn' else 'Choose from list (optional)' }}</option>
+                            <option value="Pundra University">Pundra University of Science &amp; Technology</option>
+                            <option value="Bogura Government College">Bogura Government College</option>
+                            <option value="BUET">BUET</option>
+                            <option value="Dhaka University">Dhaka University</option>
+                            <option value="North South University">North South University</option>
+                            <option value="BRAC University">BRAC University</option>
+                            <option value="AIUB">AIUB</option>
+                            <option value="University of Rajshahi">University of Rajshahi</option>
+                            <option value="__custom__">{{ 'অন্যান্য — নিচে নিজের নাম লিখুন' if lang=='bn' else 'Other — type your own below' }}</option>
+                        </select>
+                        <label for="universitySearch" class="sr-university-typed-label">
+                           {{ 'অথবা নিজের বিশ্ববিদ্যালয়ের নাম লিখুন' if lang=='bn' else 'Or enter your own university name' }}
+                        </label>
+                        <div class="sr-university-entry">
+                            <input id="universitySearch" name="university" type="text"
+                                   value="{{ req_params.university or '' }}" maxlength="150" autocomplete="off"
+                                   placeholder="{{ 'যেমন: Pundra University' if lang=='bn' else 'e.g. Pundra University' }}"
+                                   aria-describedby="srUniversityHelp">
+                            <button type="submit"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> {{ 'খুঁজুন' if lang=='bn' else 'Search' }}</button>
+                        </div>
+                        <p id="srUniversityHelp" class="sr-filter-assist text-[11px] text-slate-500 leading-5 mt-2">{{ 'যেকোনো নাম লিখতে পারবেন। ওই বিশ্ববিদ্যালয়ের নামে প্রকাশিত বিজ্ঞাপন থাকলে পাওয়া যাবে; না থাকলে ফাঁকা রেখে শুধু এলাকা দিয়ে খুঁজুন।' if lang=='bn' else 'Type any name. Results appear if published listings mention it; otherwise clear the field and search by area.' }}</p>
+                    </div>
+
+                    <!-- Max Distance from Campus -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="font-bold text-slate-700">{{ 'সর্বোচ্চ হাঁটার দূরত্ব' if lang=='bn' else 'Max walking distance' }}</label>
+                            <span class="text-emerald-700 font-bold" id="distLabel">{{ req_params.max_distance or '5.0' }} km</span>
+                        </div>
+                        <input type="range" name="max_distance" min="0.2" max="5.0" step="0.2" 
+                               value="{{ req_params.max_distance or '5.0' }}" 
+                               oninput="document.getElementById('distLabel').innerText = this.value + ' km'"
+                               class="w-full accent-emerald-600 bg-slate-200 h-2 rounded-lg cursor-pointer">
+                        <div class="flex justify-between text-[10px] text-slate-400 mt-1">
+                            <span>{{ "০.২ কিমি" if lang=="bn" else "0.2 km" }}</span>
+                            <span>{{ "২ কিমি" if lang=="bn" else "2 km" }}</span>
+                            <span>{{ "৫ কিমি" if lang=="bn" else "5 km" }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Max Rent Budget -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="font-bold text-slate-700">Max Budget</label>
+                            <span class="text-emerald-700 font-bold" id="budgetLabel">৳{{ "{:,}".format(req_params.max_budget|int if req_params.max_budget else 25000) }}</span>
+                        </div>
+                        <input type="range" name="max_budget" min="2000" max="30000" step="500" 
+                               value="{{ req_params.max_budget or 25000 }}" 
+                               oninput="document.getElementById('budgetLabel').innerText = '৳' + Number(this.value).toLocaleString()"
+                               class="w-full accent-emerald-600 bg-slate-200 h-2 rounded-lg cursor-pointer">
+                    </div>
+
+                    <!-- Property Type -->
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1.5">Property Type</label>
+                        <div class="space-y-1.5">
+                            {% for ptype in ['Mess Seat', 'Single Room', 'Bachelor Flat', 'Hostel Seat'] %}
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="property_type" value="{{ ptype }}" 
+                                       {% if req_params.property_type == ptype %}checked{% endif %}
+                                       class="text-emerald-600 focus:ring-emerald-500 rounded">
+                                <span class="text-slate-600">{{ tr_enum(ptype) }}</span>
+                            </label>
+                            {% endfor %}
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="property_type" value="" 
+                                       {% if not req_params.property_type %}checked{% endif %}
+                                       class="text-emerald-600 focus:ring-emerald-500 rounded">
+                                <span class="text-slate-500">Any Type</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Gender Policy -->
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1.5">Gender Policy</label>
+                        <select name="gender_policy" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-medium text-slate-700">
+                            <option value="">{{ "যেকোনো লিঙ্গ" if lang=="bn" else "Any gender" }}</option>
+                            <option value="Male Only" {% if req_params.gender_policy == 'Male Only' %}selected{% endif %}>{{ "শুধু ছাত্র" if lang=="bn" else "Male students only" }}</option>
+                            <option value="Female Only" {% if req_params.gender_policy == 'Female Only' %}selected{% endif %}>{{ "শুধু ছাত্রী" if lang=="bn" else "Female students only" }}</option>
+                        </select>
+                    </div>
+
+                    <!-- Facilities Checkboxes -->
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1.5">Essential Facilities</label>
+                        <div class="space-y-1.5">
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="facility_wifi" value="1" {% if req_params.facility_wifi %}checked{% endif %} class="rounded text-emerald-600 focus:ring-emerald-500">
+                                <span>High-Speed Wi-Fi</span>
+                            </label>
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="facility_generator" value="1" {% if req_params.facility_generator %}checked{% endif %} class="rounded text-emerald-600 focus:ring-emerald-500">
+                                <span>IPS / Generator Backup</span>
+                            </label>
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="facility_meals" value="1" {% if req_params.facility_meals %}checked{% endif %} class="rounded text-emerald-600 focus:ring-emerald-500">
+                                <span>Cooked Meals Included</span>
+                            </label>
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="facility_bath" value="1" {% if req_params.facility_bath %}checked{% endif %} class="rounded text-emerald-600 focus:ring-emerald-500">
+                                <span>Attached Bathroom</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition shadow-md">
+                        <i class="fa-solid fa-filter mr-1"></i> Apply Filters
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Listings Cards Grid -->
+        <div class="lg:col-span-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {% for listing in listings %}
+                {% if not listing.is_flagged %}
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col group">
+                    <!-- Image Thumbnail -->
+                    <div class="relative h-48 bg-slate-100 overflow-hidden">
+                        {% set photos = listing.photos|from_json %}
+                        <img src="{{ photos[0] if photos else 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600' }}" 
+                             alt="{{ tr_listing(listing, "title") }}" 
+                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        
+                        <!-- Verified Badge -->
+                        {% if listing.is_verified %}
+                        <div class="absolute top-2.5 left-2.5 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow flex items-center space-x-1">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>{{ "অ্যাডমিন অনুমোদিত" if lang=="bn" else "Admin approved" }}</span>
+                        </div>
+                        {% endif %}
+
+                        <!-- Gender & Type -->
+                        <div class="absolute top-2.5 right-2.5 flex flex-col items-end space-y-1">
+                            <span class="bg-slate-900/80 backdrop-blur text-white text-[10px] font-semibold px-2 py-0.5 rounded">
+                                {{ tr_enum(listing.property_type) }}
+                            </span>
+                            <span class="{% if listing.gender_policy == 'Male Only' %}bg-blue-600/90{% elif listing.gender_policy == 'Female Only' %}bg-pink-600/90{% else %}bg-purple-600/90{% endif %} text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                {{ ({"Male Only":"শুধু পুরুষ", "Female Only":"শুধু নারী", "Any":"সবার জন্য", "Mixed":"সবার জন্য"}.get(listing.gender_policy, listing.gender_policy) if lang=="bn" else listing.gender_policy) }}
+                            </span>
+                        </div>
+
+                        <!-- Distance -->
+                        <div class="absolute bottom-2.5 left-2.5 bg-slate-900/80 text-white text-[11px] px-2 py-0.5 rounded flex items-center space-x-1">
+                            <i class="fa-solid fa-person-walking text-emerald-400"></i>
+                            <span>{{ listing.distance_km }} {{ "কিমি ক্যাম্পাস থেকে" if lang=="bn" else "km from campus" }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Details -->
+                    <div class="p-4 flex-grow flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                                <span class="font-medium text-slate-700">
+                                    <i class="fa-solid fa-location-dot text-rose-500 mr-1"></i>{{ tr_enum(listing.area) }}
+                                </span>
+                                <span>{{ "পাওয়া যাবে:" if lang=="bn" else "Available:" }} {{ listing.availability_date }}</span>
+                            </div>
+
+                            <h3 class="font-bold text-slate-900 text-sm line-clamp-2 group-hover:text-emerald-600 transition">
+                                <a href="/listings/{{ listing.id }}?role={{ (current_user.role if current_user else 'guest') }}">
+                                    {{ tr_listing(listing, "title") }}
+                                </a>
+                            </h3>
+
+                            <p class="text-xs text-slate-500 mt-1 line-clamp-2">
+                                {{ tr_listing(listing, "description") }}
+                            </p>
+                            {% if lang == 'bn' and not has_translation(listing,'description') %}
+                            <p class="sr-original-content-note"><i class="fa-solid fa-language"></i> {{ 'বিজ্ঞাপনদাতার দেওয়া মূল বিবরণ' }}</p>
+                            {% endif %}
+
+                            <!-- Facility Chips -->
+                            {% set facs = listing.facilities|from_json %}
+                            <div class="flex flex-wrap gap-1 mt-2.5">
+                                {% if 'wifi' in facs %}
+                                <span class="bg-emerald-50 text-emerald-700 text-[10px] px-1.5 py-0.5 rounded font-medium">Wi-Fi</span>
+                                {% endif %}
+                                {% if 'generator' in facs %}
+                                <span class="bg-amber-50 text-amber-700 text-[10px] px-1.5 py-0.5 rounded font-medium">IPS</span>
+                                {% endif %}
+                                {% if 'meals' in facs %}
+                                <span class="bg-orange-50 text-orange-700 text-[10px] px-1.5 py-0.5 rounded font-medium">{{ "খাবার" if lang=="bn" else "Meals" }}</span>
+                                {% endif %}
+                                {% if 'attached_bath' in facs %}
+                                <span class="bg-blue-50 text-blue-700 text-[10px] px-1.5 py-0.5 rounded font-medium">{{ "সংযুক্ত বাথরুম" if lang=="bn" else "Attached bath" }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Price & Action -->
+                        <div class="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between sr-listing-price-action">
+                            <div>
+                                <span class="text-[10px] text-slate-400 block">{{ "মাসিক ভাড়া" if lang=="bn" else "Monthly rent" }}</span>
+                                <span class="text-base font-extrabold text-emerald-600">
+                                    ৳{{ "{:,}".format(listing.rent_amount) }}
+                                </span>
+                            </div>
+                            <div class="sr-inline-actions">
+                              {% if not current_user %}<a href="/login?next=/listings/{{ listing.id }}" class="sr-mini-action"><i class="fa-solid fa-scale-balanced"></i>{{ 'তুলনার জন্য লগইন' if lang=='bn' else 'Sign in to compare' }}</a>{% elif current_user.role in ['student','landlord'] %}                              <button type="button" onclick="addToComparison({{ listing.id }},this)" class="sr-mini-action" aria-label="{{ 'তুলনায় যোগ করুন' if lang=='bn' else 'Add to comparison' }}"><i class="fa-solid fa-scale-balanced"></i> {{ 'তুলনা' if lang=='bn' else 'Compare' }}</button>{% endif %}
+                              <a href="/listings/{{ listing.id }}?role={{ (current_user.role if current_user else 'guest') }}" class="sr-listing-view-cta bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg transition shadow-sm">{{ ('দেখুন ও বুকিং করুন' if lang=='bn' else 'View & book') if current_user and current_user.role=='student' else ('বিস্তারিত দেখুন' if lang=='bn' else 'View details') }}</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+
+            {% if listings|length == 0 %}
+            <div class="bg-white rounded-2xl p-12 text-center border border-slate-200">
+                <i class="fa-solid fa-house-chimney-crack text-4xl text-slate-300 mb-3"></i>
+                <h3 class="text-base font-bold text-slate-800">{{ 'এই শর্তে কোনো অনুমোদিত বাসা পাওয়া যায়নি' if lang=='bn' else 'No approved homes match these filters' }}</h3>
+                <p class="text-xs text-slate-500 mt-1">{{ 'বিশ্ববিদ্যালয়ের নাম মেলেনি? বিশ্ববিদ্যালয় ফাঁকা রেখে এলাকা দিয়ে আবার খুঁজুন।' if lang=='bn' else 'No results for that university? Clear the campus field and try an area search.' }}</p>
+                <a href="/listings?role={{ (current_user.role if current_user else 'guest') }}" class="inline-block mt-4 bg-emerald-600 text-white text-xs font-bold px-4 py-2 rounded-xl">
+                    {{ 'সব ফিল্টার সরান' if lang=='bn' else 'Clear filters' }}
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Save Search Modal -->
+<div id="saveSearchModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-bold text-slate-900 flex items-center">
+                <i class="fa-solid fa-bell text-amber-500 mr-2"></i> Save Search Alert
+            </h3>
+            <button onclick="closeSaveSearchModal()" class="text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        <p class="text-xs text-slate-600 mb-4">
+            {{ 'নতুন অনুমোদিত বাসা আপনার সংরক্ষিত শর্তের সঙ্গে মিললে প্রোফাইলে অ্যালার্ট দেখাবে।' if lang=='bn' else 'Get an in-app alert in your profile when a newly approved home matches your saved search.' }}
+        </p>
+        <form action="/api/save-search" method="POST" onsubmit="handleSaveSearch(event)">
+            <input type="hidden" name="user_id" value="{{ (current_user.id if current_user else '') }}">
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Campus / University</label>
+                    <input type="text" name="university" value="{{ req_params.university or '' }}" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Preferred Area</label>
+                    <input type="text" name="area" value="{{ req_params.area or '' }}" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Max Budget (BDT)</label>
+                    <input type="number" name="max_budget" value="{{ req_params.max_budget or 6000 }}" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2 mt-5">
+                <button type="button" onclick="closeSaveSearchModal()" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                <button type="submit" class="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow">
+                    <i class="fa-solid fa-check mr-1"></i> Save Search
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+
+<script>
+// Choosing a suggestion copies it to the real text input; custom text is never blocked.
+(function () {
+  const preset = document.getElementById('srUniversityPreset');
+  const input = document.getElementById('universitySearch');
+  if (!preset || !input) return;
+  function syncFromInput() {
+    const entered = input.value.trim().toLowerCase();
+    const match = Array.from(preset.options).find(opt => opt.value && opt.value !== '__custom__' && opt.value.toLowerCase() === entered);
+    preset.value = match ? match.value : (entered ? '__custom__' : '');
+  }
+  preset.addEventListener('change', function () {
+    if (preset.value === '__custom__') {
+      input.value = '';
+      input.focus();
+    } else {
+      input.value = preset.value;
+    }
+  });
+  input.addEventListener('input', syncFromInput);
+  syncFromInput();
+})();
+</script>
+<script>
+async function addToComparison(id,button){
+ button.disabled=true;try{
+  const data=new FormData();data.append('listing_id',id);
+  const res=await checkedApiFetch('/api/compare/toggle',{method:'POST',body:data});
+  const result=await res.json();
+  showNotification('Comparison updated',result.action==='added'?'Added to comparison.':'Removed from comparison.');
+ }catch(err){showNotification('Error',err.message,'error');}
+ finally{button.disabled=false;}
+}
+</script>
+<script>
+    // Location-aware map: owner-provided property pins and user-triggered place search.
+    // No Dhaka-only fixed hub pins. No guessed coordinates.
+    const isBn = {{ 'true' if lang=='bn' else 'false' }};
+    let map = null;
+    let mapVisible = true;
+    let propertyPins = [];
+    let searchedPlacePin = null;
+    let searchAbort = null;
+    const publishedListings = [
+      {% for listing in listings if not listing.is_flagged %}
+      {
+        id: {{ listing.id }},
+        title: {{ tr_listing(listing, 'title')|tojson }},
+        type: {{ tr_enum(listing.property_type)|tojson }},
+        rent: {{ listing.rent_amount }},
+        lat: {{ listing.lat|tojson }},
+        lng: {{ listing.lng|tojson }},
+        area: {{ tr_enum(listing.area)|tojson }},
+        photo: {{ ((listing.photos|from_json)[0] if listing.photos and listing.photos|from_json else '')|tojson }}
+      },
+      {% endfor %}
+    ];
+    function mapStatus(message, isError=false) {
+      const target = document.getElementById('mapSearchStatus');
+      if (target) { target.textContent=message; target.classList.toggle('is-error', isError); }
+    }
+    function escapedText(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    }
+    function showPropertyPins() {
+      if (!map) return;
+      if (searchedPlacePin) {map.removeLayer(searchedPlacePin);searchedPlacePin=null;}
+      const valid = propertyPins.map(p=>p.getLatLng());
+      if(valid.length)map.fitBounds(L.latLngBounds(valid).pad(.16),{maxZoom:14});
+      else map.setView([23.6850,90.3563],7);
+      mapStatus(isBn ? `${valid.length}টি প্রকাশিত বাসার পিন দেখানো হচ্ছে।` : `Showing ${valid.length} published property pins.`);
+    }
+    function initMap() {
+      if (typeof L === 'undefined') {
+        mapStatus(isBn?'ইন্টারনেট ছাড়া মানচিত্র লোড হয়নি। নিচের বাসার তালিকা ব্যবহার করুন।':'Map unavailable without internet. Use the housing cards below.',true);
+        document.getElementById('map').innerHTML='<div class="sr-empty-state">'+(isBn?'মানচিত্রের জন্য ইন্টারনেট প্রয়োজন':'An internet connection is needed to load the map')+'</div>';
+        return;
+      }
+      map = L.map('map',{scrollWheelZoom:false}).setView([23.6850,90.3563],7);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+        maxZoom:19,attribution:'&copy; OpenStreetMap contributors'
+      }).addTo(map);
+      publishedListings.forEach(item => {
+        const lat=Number(item.lat),lng=Number(item.lng);
+        if (!Number.isFinite(lat)||!Number.isFinite(lng)||lat<20||lat>27||lng<88||lng>93) return;
+        const icon=L.divIcon({className:'sr-property-map-pin',html:`<span>৳${Number(item.rent).toLocaleString('en-BD')}</span>`,iconSize:[85,32],iconAnchor:[42,16]});
+        const img=item.photo ? `<img loading="lazy" src="${escapedText(item.photo)}" alt="" class="sr-map-popup-image">`:'';
+        const link=`/listings/${encodeURIComponent(item.id)}`;
+        const popup=`<div class="sr-map-popup">${img}<small>${escapedText(item.type)} · ${escapedText(item.area)}</small><strong>${escapedText(item.title)}</strong><div><b>৳${Number(item.rent).toLocaleString('en-BD')}</b><a href="${link}">${isBn?'বিস্তারিত':'Details'} →</a></div><em>${isBn?'বিজ্ঞাপনদাতার দেওয়া অবস্থান':'Owner-provided location'}</em></div>`;
+        propertyPins.push(L.marker([lat,lng],{icon}).addTo(map).bindPopup(popup));
+      });
+      showPropertyPins();
+      setTimeout(()=>map.invalidateSize(),100);
+    }
+    async function searchMapPlace(value) {
+      const place = String(value||'').trim().slice(0,150);
+      if(!place) return;
+      if(!map){mapStatus(isBn?'মানচিত্র লোড হয়নি।':'Map unavailable.',true);return;}
+      const btn=document.getElementById('mapPlaceBtn');
+      if(searchAbort) searchAbort.abort();
+      searchAbort=new AbortController();
+      btn.disabled=true;
+      mapStatus(isBn?'এলাকা খোঁজা হচ্ছে…':'Searching for location…');
+      try {
+        // Request is only sent when user submits / clicks, never for every keystroke.
+        const term = /bangladesh|বাংলাদেশ/i.test(place) ? place : `${place}, Bangladesh`;
+        const url=new URL('https://nominatim.openstreetmap.org/search');
+        url.searchParams.set('q',term);
+        url.searchParams.set('countrycodes','bd');
+        url.searchParams.set('format','json');
+        url.searchParams.set('limit','1');
+        const resp=await fetch(url,{headers:{'Accept':'application/json'},signal:searchAbort.signal});
+        if(!resp.ok)throw new Error(`HTTP ${resp.status}`);
+        const matches=await resp.json();
+        if(!Array.isArray(matches)||matches.length===0) {
+          mapStatus(isBn?'এই নামে বাংলাদেশে কোনো স্থান পাওয়া যায়নি। বানান বা কাছের বড় শহরের নাম দিয়ে চেষ্টা করুন।':'No matching place in Bangladesh. Try another spelling or nearby city.',true);
+          return;
+        }
+        const hit=matches[0],lat=Number(hit.lat),lon=Number(hit.lon);
+        if(!Number.isFinite(lat)||!Number.isFinite(lon))throw new Error('Invalid location');
+        if(searchedPlacePin)map.removeLayer(searchedPlacePin);
+        searchedPlacePin=L.circleMarker([lat,lon],{radius:11,color:'#1856a0',weight:3,fillColor:'#57a7ed',fillOpacity:.65})
+          .addTo(map).bindPopup(escapedText(hit.display_name)).openPopup();
+        if(hit.boundingbox&&hit.boundingbox.length===4) {
+          map.fitBounds([[Number(hit.boundingbox[0]),Number(hit.boundingbox[2])],[Number(hit.boundingbox[1]),Number(hit.boundingbox[3])]],{maxZoom:14,padding:[30,30]});
+        } else map.setView([lat,lon],13);
+        mapStatus(isBn?`মানচিত্রে দেখানো হচ্ছে: ${place}। এখানে প্রকাশিত বাসা না-ও থাকতে পারে।`:`Showing ${place} on the map. There may be no listed homes here.`);
+      } catch(error) {
+        if(error.name!=='AbortError')mapStatus(isBn?'লোকেশন সার্ভিস পাওয়া যাচ্ছে না। ইন্টারনেট দেখে আবার চেষ্টা করুন।':'Location lookup is unavailable. Check your connection and retry.',true);
+      } finally {btn.disabled=false;}
+    }
+    document.getElementById('mapPlaceForm').addEventListener('submit',e=>{
+      e.preventDefault();searchMapPlace(document.getElementById('mapPlaceInput').value);
+    });
+    document.querySelectorAll('[data-place]').forEach(btn=>btn.addEventListener('click',()=>{
+      document.getElementById('mapPlaceInput').value=btn.dataset.place;
+      searchMapPlace(btn.dataset.place);
+    }));
+    document.getElementById('showListingPins').addEventListener('click',showPropertyPins);
+
+    function toggleMap() {
+        const container = document.getElementById('mapContainer');
+        const text = document.getElementById('mapToggleText');
+        if (mapVisible) {
+            container.classList.add('hidden');
+            text.innerText = 'Show Map View';
+            mapVisible = false;
+        } else {
+            container.classList.remove('hidden');
+            text.innerText = 'Hide Map View';
+            mapVisible = true;
+            setTimeout(() => { if(map)map.invalidateSize(); }, 200);
+        }
+    }
+
+    function openSaveSearchModal() {
+        document.getElementById('saveSearchModal').classList.remove('hidden');
+    }
+
+    function closeSaveSearchModal() {
+        document.getElementById('saveSearchModal').classList.add('hidden');
+    }
+
+    async function handleSaveSearch(e) {
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
+        
+        try {
+            const resp = await checkedApiFetch('/api/save-search', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+            closeSaveSearchModal();
+            showNotification('Search Saved!', 'Your preferences are saved. When an admin approves a matching new listing, you will see an alert in My Profile.');
+        } catch(err) {
+                showNotification(
+                    "Request failed",
+                    err.message || "Please retry.",
+                    "error"
+                );
+            }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initMap();
+    });
+</script>
+{% endblock %}

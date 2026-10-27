@@ -1,0 +1,374 @@
+{% extends "base.html" %}
+
+{% block title %}Maintenance & Repair Requests - SmartRent BD{% endblock %}
+
+{% block content %}
+<style>
+.sr-main .sr-maintenance-role-note{display:flex;align-items:flex-start;gap:12px;background:#edf8f2;border:1px solid #c9e7d5;padding:17px 19px;border-radius:15px;margin:0 0 22px;color:#165440}
+.sr-main .sr-maintenance-role-note>i{font-size:20px;flex:0 0 auto;color:#087b58;margin-top:2px}
+.sr-main .sr-maintenance-role-note strong{font-size:14px}
+.sr-main .sr-maintenance-role-note p{font-size:12px;line-height:1.7;margin:5px 0 0;color:#466f5e}
+.sr-main .sr-ticket-dialog{max-height:min(90vh,760px);overflow-y:auto;overscroll-behavior:contain}
+.sr-main .sr-ticket-dialog .sr-field{margin-bottom:14px}
+.sr-main .sr-ticket-dialog .sr-field label{font-size:12px;font-weight:800;display:block;margin-bottom:7px;color:#233c33}
+.sr-main .sr-ticket-dialog .sr-field select{width:100%;min-height:45px;padding:10px 12px;border:1px solid #d1e3d8;border-radius:10px;background:#fff}
+.sr-main .sr-ticket-dialog .sr-help{line-height:1.65;font-size:11.5px;color:#647c6e;margin:7px 0 0}
+.sr-main .sr-ticket-dialog .space-y-3>div{margin:0 0 14px}
+.sr-main .sr-ticket-dialog .space-y-3 label{font-size:12px;line-height:1.65;font-weight:800;color:#263e34}
+.sr-main .sr-ticket-dialog .space-y-3 select,.sr-main .sr-ticket-dialog .space-y-3 input,.sr-main .sr-ticket-dialog .space-y-3 textarea{width:100%;min-height:45px;border:1px solid #d1e3d8;border-radius:10px;background:#fff;font-size:13px;line-height:1.5;padding:10px 12px}
+.sr-main .sr-ticket-dialog .space-y-3 textarea{min-height:104px;resize:vertical}
+.sr-main #srCustomCategoryWrap[hidden]{display:none!important}
+.sr-main .sr-custom-category{padding:11px 12px;background:#f0faf4;border:1px solid #d6eadf;border-radius:10px;margin-top:10px!important}
+.sr-main .sr-report-action{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:210px}
+.sr-main .sr-report-action-button{min-height:43px}
+.sr-main .sr-report-action-button.sr-report-action-disabled,.sr-main .sr-report-action-button:disabled{background:#dbe3e9!important;color:#516474!important;box-shadow:none!important;cursor:not-allowed!important;opacity:1!important}
+.sr-main .sr-report-action-hint{font-size:11px;color:#667781;line-height:1.5;margin:0}
+.sr-main .sr-report-action-hint a{color:#066a51;text-decoration:underline;text-underline-offset:2px;margin-left:4px}
+@media (max-width:640px){.sr-main .sr-report-action,.sr-main .sr-report-action-button{width:100%}}
+</style>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Top Headline & CTA -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+            <div class="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1 flex items-center">
+                <i class="fa-solid fa-screwdriver-wrench mr-1.5"></i> {{ 'বাসার যত্ন ও মেরামত' if lang=='bn' else 'Tenant care & repairs' }}
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900">
+                {{ 'মেরামতের অনুরোধ' if lang=='bn' else 'Maintenance requests' }}
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-500 mt-1">
+                {{ ('ভাড়াটিয়ার পাঠানো মেরামতের অনুরোধগুলো গ্রহণ করুন এবং কাজ শেষ হলে সমাধান হয়েছে চিহ্নিত করুন।' if lang=='bn' else 'Review tenant repair requests, accept them, and mark completed repairs resolved.') if current_user.role=='landlord' else ('নিশ্চিত বুকিংয়ের বাসার সমস্যা জানান এবং অগ্রগতি দেখুন।' if lang=='bn' else 'Report issues for confirmed rentals and follow their progress.') }}
+            </p>
+        </div>
+
+        {% if current_user.role == 'student' %}
+        <div class="sr-report-action">
+          <button type="button"
+                  {% if available_listings %}onclick="openTicketModal()"{% else %}disabled aria-describedby="sr-report-requires-booking" title="{{ 'প্রথমে বাসার বুকিং নিশ্চিত করুন' if lang == 'bn' else 'Confirm your property booking first' }}"{% endif %}
+                  class="sr-report-action-button bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-2 {% if not available_listings %}sr-report-action-disabled{% endif %}">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            <span>{{ 'নতুন সমস্যা রিপোর্ট করুন' if lang=='bn' else 'Report a new issue' }}</span>
+          </button>
+          {% if not available_listings %}
+          <p id="sr-report-requires-booking" class="sr-report-action-hint">
+             <i class="fa-solid fa-lock" aria-hidden="true"></i>
+             {{ 'বুকিং নিশ্চিত হলে চালু হবে।' if lang == 'bn' else 'Available after booking confirmation.' }}
+             <a href="/my-bookings">{{ 'আমার বুকিং দেখুন' if lang == 'bn' else 'View my bookings' }}</a>
+          </p>
+          {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    {% if current_user.role=='landlord' %}
+    <div class="sr-maintenance-role-note" role="status">
+      <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+      <div><strong>{{ 'বাড়ির মালিকের মেরামত ব্যবস্থাপনা' if lang=='bn' else 'Landlord maintenance workspace' }}</strong>
+      <p>{{ 'শুধু নিশ্চিত বুকিং থাকা ভাড়াটিয়া সমস্যা রিপোর্ট করতে পারেন। আপনার বাসার ভাড়াটিয়াদের অনুরোধ নিচে দেখুন এবং অবস্থা আপডেট করুন।' if lang=='bn' else 'Only tenants with confirmed bookings can report an issue. Review and update your tenants’ requests below.' }}</p></div>
+    </div>
+    {% endif %}
+    {% if current_user.role=='student' and not available_listings %}
+    <div class="sr-empty-guidance" role="status">
+      <span class="sr-empty-guidance-icon"><i class="fa-solid fa-house-circle-exclamation"></i></span>
+      <div><strong>{{ 'আপনার এখনো কোনো নিশ্চিত বুকিং নেই' if lang=='bn' else 'You have no confirmed bookings yet' }}</strong>
+      <p>{{ 'মেরামতের অনুরোধ পাঠাতে মালিকের নিশ্চিত করা একটি বুকিং প্রয়োজন। আগে বাসা দেখার অনুরোধ পাঠান, তারপর বুকিং নিশ্চিত করুন।' if lang=='bn' else 'A landlord-confirmed booking is needed to request repairs. Start with a property visit, then have your booking confirmed.' }}</p>
+      <div class="sr-inline-actions"><a class="sr-feature-primary" href="/listings"><i class="fa-solid fa-magnifying-glass"></i> {{ 'বাসা খুঁজুন' if lang=='bn' else 'Find a home' }}</a><a class="sr-feature-secondary" href="/my-bookings"><i class="fa-regular fa-calendar-check"></i> {{ 'আমার বুকিংয়ের অবস্থা' if lang=='bn' else 'My booking status' }}</a></div></div>
+    </div>
+    {% endif %}
+    <!-- Kanban / Pipeline 3 Columns -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Col 1: Open / Pending Tickets -->
+        <div class="bg-slate-100/80 rounded-2xl p-4 border border-slate-200">
+            <div class="flex items-center justify-between mb-4 px-1">
+                <div class="flex items-center space-x-2">
+                    <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                    <h3 class="font-bold text-sm text-slate-800">{{ 'নতুন অনুরোধ' if lang=='bn' else 'New requests' }}</h3>
+                </div>
+                <span class="text-xs font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                    {{ open_tickets|length }}
+                </span>
+            </div>
+
+            <div class="space-y-3">
+                {% for t in open_tickets %}
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded {% if t.priority == 'urgent' %}bg-rose-100 text-rose-800{% elif t.priority == 'high' %}bg-orange-100 text-orange-800{% else %}bg-slate-100 text-slate-700{% endif %} uppercase">
+                            {{ t.priority }}
+                        </span>
+                        <span class="text-[10px] text-slate-400 font-mono">{{ t.created_at[:10] }}</span>
+                    </div>
+
+                    <div>
+                        <span class="text-[11px] text-emerald-700 font-bold block mb-1"><i class="fa-solid fa-house" aria-hidden="true"></i> {{ t.listing_title }}</span>
+                        <span class="text-[11px] font-bold text-blue-600 block">{{ t.category }}</span>
+                        <h4 class="font-bold text-slate-900 text-xs">{{ t.title }}</h4>
+                        <p class="text-xs text-slate-500 mt-1 leading-relaxed">{{ t.description }}</p>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                        <span class="text-slate-500">{{ 'শিক্ষার্থী:' if lang=='bn' else 'Tenant:' }} <b class="text-slate-700">{{ t.tenant_name }}</b></span>
+                        {% if current_user.role == 'landlord' %}
+                        <button onclick="updateTicketStatus({{ t.id }}, 'in_progress')" class="text-blue-600 hover:text-blue-700 font-bold">
+                            {{ 'অনুরোধ গ্রহণ ও কাজ শুরু' if lang=='bn' else 'Accept & start work' }} →
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+
+                {% if open_tickets|length == 0 %}
+                <div class="text-center py-8 text-xs text-slate-400">
+                    {{ 'এখন কোনো নতুন অনুরোধ নেই' if lang=='bn' else 'No new requests' }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Col 2: In Progress Tickets -->
+        <div class="bg-slate-100/80 rounded-2xl p-4 border border-slate-200">
+            <div class="flex items-center justify-between mb-4 px-1">
+                <div class="flex items-center space-x-2">
+                    <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                    <h3 class="font-bold text-sm text-slate-800">{{ 'কাজ চলছে' if lang=='bn' else 'In progress' }}</h3>
+                </div>
+                <span class="text-xs font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                    {{ in_progress_tickets|length }}
+                </span>
+            </div>
+
+            <div class="space-y-3">
+                {% for t in in_progress_tickets %}
+                <div class="bg-white p-4 rounded-xl border border-blue-200 shadow-sm space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800 uppercase">
+                            {{ t.priority }}
+                        </span>
+                        <span class="text-[10px] text-slate-400 font-mono">{{ t.created_at[:10] }}</span>
+                    </div>
+
+                    <div>
+                        <span class="text-[11px] text-emerald-700 font-bold block mb-1"><i class="fa-solid fa-house" aria-hidden="true"></i> {{ t.listing_title }}</span>
+                        <span class="text-[11px] font-bold text-blue-600 block">{{ t.category }}</span>
+                        <h4 class="font-bold text-slate-900 text-xs">{{ t.title }}</h4>
+                        <p class="text-xs text-slate-500 mt-1 leading-relaxed">{{ t.description }}</p>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                        <span class="text-slate-500">{{ 'মালিক:' if lang=='bn' else 'Landlord:' }} <b class="text-slate-700">{{ t.owner_name }}</b></span>
+                        {% if current_user.role == 'landlord' %}
+                        <button onclick="updateTicketStatus({{ t.id }}, 'resolved')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded-lg">
+                            {{ 'সমাধান হয়েছে ✓' if lang=='bn' else 'Mark resolved ✓' }}
+                        </button>
+                        {% else %}
+                        <span class="text-blue-600 font-semibold">{{ 'মালিক কাজ করছেন' if lang=='bn' else 'Owner is working on it' }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+
+                {% if in_progress_tickets|length == 0 %}
+                <div class="text-center py-8 text-xs text-slate-400">
+                    {{ 'এখন কোনো কাজ চলছে না' if lang=='bn' else 'No work in progress' }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Col 3: Resolved Tickets -->
+        <div class="bg-slate-100/80 rounded-2xl p-4 border border-slate-200">
+            <div class="flex items-center justify-between mb-4 px-1">
+                <div class="flex items-center space-x-2">
+                    <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                    <h3 class="font-bold text-sm text-slate-800">{{ 'সমাধান হয়েছে' if lang=='bn' else 'Resolved' }}</h3>
+                </div>
+                <span class="text-xs font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                    {{ resolved_tickets|length }}
+                </span>
+            </div>
+
+            <div class="space-y-3">
+                {% for t in resolved_tickets %}
+                <div class="bg-white p-4 rounded-xl border border-emerald-100 shadow-sm space-y-2 opacity-90">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 flex items-center">
+                            <i class="fa-solid fa-check mr-1"></i> {{ 'সমাধান হয়েছে' if lang=='bn' else 'Resolved' }}
+                        </span>
+                        <span class="text-[10px] text-slate-400 font-mono">{{ t.created_at[:10] }}</span>
+                    </div>
+
+                    <div>
+                        <span class="text-[11px] text-emerald-700 font-bold block mb-1"><i class="fa-solid fa-house" aria-hidden="true"></i> {{ t.listing_title }}</span>
+                        <span class="text-[11px] font-bold text-slate-500 block">{{ t.category }}</span>
+                        <h4 class="font-bold text-slate-900 text-xs">{{ t.title }}</h4>
+                        <p class="text-xs text-slate-500 mt-1 line-clamp-2">{{ t.description }}</p>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-100 text-[10px] text-emerald-700 font-medium flex items-center">
+                        <i class="fa-solid fa-circle-check mr-1"></i> {{ 'মালিক সমাধান হয়েছে বলে জানিয়েছেন' if lang=='bn' else 'Owner marked this resolved' }}
+                    </div>
+                </div>
+                {% endfor %}
+
+                {% if resolved_tickets|length == 0 %}
+                <div class="text-center py-8 text-xs text-slate-400">
+                    {{ 'এখনো কোনো সমাধানকৃত অনুরোধ নেই' if lang=='bn' else 'No resolved tickets yet' }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Submit Maintenance Ticket -->
+{% if current_user.role == 'student' and available_listings %}
+<div id="ticketModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="sr-ticket-dialog bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-bold text-slate-900 flex items-center">
+                <i class="fa-solid fa-screwdriver-wrench text-blue-600 mr-2"></i> {{ 'বাসার সমস্যা জানান' if lang=='bn' else 'Report a repair issue' }}
+            </h3>
+            <button onclick="closeTicketModal()" class="text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        <form action="/api/submit-maintenance" method="POST" onsubmit="handleTicketSubmit(event)">
+            <input type="hidden" name="tenant_id" value="{{ current_user.id }}">
+            <input type="hidden" name="owner_id" value="0">
+            <div class="sr-field">
+              <label for="maintenance-listing">{{ 'যে বাসার সমস্যা' if lang=='bn' else 'Property needing repair' }}</label>
+              <select id="maintenance-listing" name="listing_id" required>
+                  <option value="" {% if available_listings|length != 1 %}selected{% endif %}>{{ 'আপনার নিশ্চিত বুকিং থেকে বাসা বাছুন' if lang=='bn' else 'Choose from your confirmed bookings' }}</option>
+                  {% for item in available_listings %}
+                  <option value="{{ item.id }}" {% if available_listings|length == 1 %}selected{% endif %}>{{ item.title }}</option>
+                  {% endfor %}
+              </select>
+              <p class="sr-help">{{ 'শুধু মালিকের নিশ্চিত করা বুকিংয়ের বাসাগুলো এখানে দেখাবে। বাসা না পেলে “আমার বুকিং” দেখুন।' if lang=='bn' else 'Only landlord-confirmed bookings appear here. If a home is missing, check My Bookings.' }}</p>
+            </div>
+            
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label for="srTicketCategory" class="block font-bold text-slate-700 mb-1">{{ 'সমস্যার ধরন' if lang=='bn' else 'Problem category' }}</label>
+                    <select id="srTicketCategory" name="category" required class="w-full border border-slate-300 rounded-lg p-2 font-medium" onchange="syncMaintenanceCategory()">
+                        <option value="Plumbing">{{ 'পানির লাইন / বাথরুম / পাইপ' if lang=='bn' else 'Plumbing / water / bathroom' }}</option>
+                        <option value="Electrical">{{ 'বিদ্যুৎ / ফ্যান / সুইচ' if lang=='bn' else 'Electrical / fans / switches' }}</option>
+                        <option value="Wi-Fi">{{ 'ওয়াই-ফাই / ইন্টারনেট' if lang=='bn' else 'Wi-Fi / internet' }}</option>
+                        <option value="Structural">{{ 'দরজা / জানালা / দেয়াল' if lang=='bn' else 'Doors / windows / walls' }}</option>
+                        <option value="Appliance">{{ 'ফ্রিজ / চুলা / অন্যান্য যন্ত্র' if lang=='bn' else 'Appliances / fridge / stove' }}</option>
+                        <option value="Other">{{ 'অন্যান্য — নিজের ভাষায় লিখুন' if lang=='bn' else 'Other — describe your own category' }}</option>
+                    </select>
+                    <div id="srCustomCategoryWrap" class="sr-custom-category" hidden>
+                      <label for="srCustomCategory" class="block font-bold text-slate-700 mb-1">{{ 'আপনার সমস্যার ধরন লিখুন' if lang=='bn' else 'Write your problem category' }}</label>
+                      <input type="text" id="srCustomCategory" name="custom_category" minlength="2" maxlength="80" disabled
+                             placeholder="{{ 'যেমন: ছাদের পানি চুইয়ে পড়ছে' if lang=='bn' else 'e.g. Roof leakage' }}"
+                             class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">{{ 'জরুরিত্বের মাত্রা' if lang=='bn' else 'Priority' }}</label>
+                    <select name="priority" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                        <option value="medium">{{ 'সাধারণ' if lang=='bn' else 'Medium' }}</option>
+                        <option value="urgent">{{ 'অতি জরুরি' if lang=='bn' else 'Urgent' }}</option>
+                        <option value="high">{{ 'উচ্চ' if lang=='bn' else 'High' }}</option>
+                        <option value="low">{{ 'কম' if lang=='bn' else 'Low' }}</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">{{ 'সমস্যার সংক্ষিপ্ত শিরোনাম' if lang=='bn' else 'Short issue title' }}</label>
+                    <input type="text" name="title" required minlength="5" maxlength="150" placeholder="{{ 'যেমন: রান্নাঘরের পানির পাইপ নষ্ট' if lang=='bn' else 'e.g. Kitchen water pipe is broken' }}" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">{{ 'বিস্তারিত বিবরণ' if lang=='bn' else 'Details' }}</label>
+                    <textarea name="description" rows="3" required minlength="10" maxlength="1500" placeholder="{{ 'কখন থেকে সমস্যা হচ্ছে এবং কী ঠিক করতে হবে লিখুন...' if lang=='bn' else 'Describe when the issue started and what needs repair...' }}" class="w-full border border-slate-300 rounded-lg p-2"></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 mt-5">
+                <button type="button" onclick="closeTicketModal()" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg">{{ 'বাতিল' if lang=='bn' else 'Cancel' }}</button>
+                <button type="submit" class="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow">
+                    {{ 'অনুরোধ পাঠান' if lang=='bn' else 'Submit repair request' }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const maintenanceIsBangla = {{ 'true' if lang == 'bn' else 'false' }};
+    function openTicketModal() {
+        const modal = document.getElementById('ticketModal');
+        if (modal) modal.classList.remove('hidden');
+    }
+    function closeTicketModal() {
+        const modal = document.getElementById('ticketModal');
+        if (modal) modal.classList.add('hidden');
+    }
+    function syncMaintenanceCategory() {
+        const select = document.getElementById('srTicketCategory');
+        const wrapper = document.getElementById('srCustomCategoryWrap');
+        const input = document.getElementById('srCustomCategory');
+        if (!select || !wrapper || !input) return;
+        const other = select.value === 'Other';
+        wrapper.hidden = !other;
+        input.disabled = !other;
+        input.required = other;
+        if (!other) input.value = '';
+    }
+    syncMaintenanceCategory();
+
+    async function handleTicketSubmit(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        if (formData.get('category') === 'Other') {
+            const ownCategory = String(formData.get('custom_category') || '').trim();
+            if (ownCategory.length < 2 || ownCategory.length > 80) {
+                document.getElementById('srCustomCategory')?.focus();
+                showNotification(
+                    maintenanceIsBangla ? 'সমস্যার ধরন লিখুন' : 'Enter your problem category',
+                    maintenanceIsBangla ? '২–৮০ অক্ষরে নিজের সমস্যার ধরন লিখতে হবে।' : 'Please enter 2–80 characters.',
+                    'error'
+                );
+                return;
+            }
+            // Server already validates the category field (2–80 characters).
+            formData.set('category', ownCategory);
+        }
+        formData.delete('custom_category');
+        try {
+            await checkedApiFetch('/api/submit-maintenance', { method: 'POST', body: formData });
+            closeTicketModal();
+            showNotification(maintenanceIsBangla ? 'অনুরোধ জমা হয়েছে' : 'Request submitted', maintenanceIsBangla ? 'অনুরোধটি বাড়ির মালিকের তালিকায় দেখাবে।' : 'The owner can now review your request.');
+            setTimeout(() => { window.location.reload(); }, 1200);
+        } catch(err) {
+                showNotification(
+                    "Request failed",
+                    err.message || "Please retry.",
+                    "error"
+                );
+            }
+    }
+
+    async function updateTicketStatus(ticketId, newStatus) {
+        const formData = new FormData();
+        formData.append('ticket_id', ticketId);
+        formData.append('status', newStatus);
+
+        try {
+            await checkedApiFetch('/api/landlord/maintenance-status', { method: 'POST', body: formData });
+            showNotification(maintenanceIsBangla ? 'অবস্থা পরিবর্তন হয়েছে' : 'Status updated', maintenanceIsBangla ? 'অনুরোধটি পরবর্তী ধাপে গেছে।' : 'The request moved to the next stage.');
+            setTimeout(() => { window.location.reload(); }, 1000);
+        } catch(err) {
+                showNotification(
+                    "Request failed",
+                    err.message || "Please retry.",
+                    "error"
+                );
+            }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,48 @@
+/* SmartRent BD · Product UI v3 · cohesive responsive system */
+:root{--sr-ink:#172c35;--sr-muted:#657780;--sr-green:#087d68;--sr-green-dark:#056552;--sr-line:#dfeae8;--sr-bg:#f4f8f7;--sr-radius:20px;--sr-elev:0 8px 28px rgba(20,58,51,.065)}
+html{scroll-padding-top:100px}body{background:var(--sr-bg)!important;color:var(--sr-ink);-webkit-font-smoothing:antialiased}
+html[lang=bn] body{font-family:'Noto Sans Bengali',sans-serif;line-height:1.72}html[lang=bn] h1,html[lang=bn] h2,html[lang=bn] h3{letter-spacing:0!important;line-height:1.55!important}
+/* Quiet navigation; active destination easy to scan */
+nav.bg-white{background:rgba(255,255,255,.98)!important;border-color:var(--sr-line)!important;box-shadow:0 4px 20px rgba(14,55,45,.045)!important;position:relative;z-index:30}
+nav .nav-link{border-radius:12px!important;white-space:normal;min-height:42px;display:inline-flex;align-items:center;gap:7px;padding:9px 12px!important;line-height:1.35;transition:background .18s ease,color .18s ease}
+nav .nav-link:hover{background:#e9f6f0!important;color:#076b57!important}
+nav .nav-link-active{background:#e4f4ed!important;color:#06634f!important;font-weight:700!important}
+/* Page rhythm and readable measure */
+main{min-width:0}main h1{font-weight:800;letter-spacing:-.03em;color:#19332f}main h2{letter-spacing:-.025em;color:#19332f}main h3{color:#213b38}
+main p,main li,main label,main span{overflow-wrap:break-word}main p{line-height:1.72}
+main .text-slate-400{color:#73828c!important}main .text-slate-500{color:#596d75!important}
+main .max-w-7xl{max-width:1210px}main .max-w-6xl{max-width:1080px}
+/* Consistent surface treatment without excessive visual noise */
+main .bg-white.rounded-2xl,main .bg-white.rounded-3xl,main .bg-white.rounded-xl,main .glass-card{border:1px solid var(--sr-line)!important;box-shadow:var(--sr-elev);background:#fff!important;overflow-wrap:anywhere}
+main .bg-white.rounded-2xl,main .bg-white.rounded-3xl{border-radius:var(--sr-radius)!important}
+main .shadow-xl,main .shadow-2xl{box-shadow:0 12px 38px rgba(24,65,54,.10)!important}
+/* Do not clip floating menus or popovers */
+main .overflow-visible{overflow:visible!important}
+/* Buttons are reachable and distinguishable */
+main button,main a[class*='bg-emerald'],main a[class*='bg-teal']{transition:transform .16s ease,background-color .16s ease,box-shadow .16s ease}
+main button:not(:disabled):active,main a[class*='bg-emerald']:active{transform:scale(.985)}
+main button:disabled{opacity:.55;cursor:not-allowed}
+main button[class*='bg-emerald'],main a[class*='bg-emerald']{box-shadow:0 5px 14px rgba(5,150,105,.14)}
+/* Inputs, field labels, long placeholders */
+main input:not([type=checkbox]):not([type=radio]):not([type=range]),main select,main textarea,.form-input{max-width:100%;min-width:0;border-radius:12px!important;border-color:#d6e2e0!important;background:#fff!important;min-height:44px;line-height:1.5;transition:border-color .18s,box-shadow .18s}
+main textarea{min-height:110px;resize:vertical}
+main input:focus,main select:focus,main textarea:focus,.form-input:focus{outline:none;border-color:#0a9775!important;box-shadow:0 0 0 3px rgba(16,185,129,.13)!important}
+main input::placeholder,main textarea::placeholder{color:#84939a!important}
+main label{line-height:1.6!important}
+/* Listing imagery and content, no cramped overlay */
+main img{max-width:100%}main img.object-cover{object-fit:cover}
+main [class*='line-clamp']{line-height:1.62}
+main .grid>*{min-width:0}
+main [class*='tracking-widest']{letter-spacing:.09em}
+html[lang=bn] main [class*='tracking-widest']{letter-spacing:normal!important}
+/* Tables stay usable on small devices */
+main table{border-collapse:separate;border-spacing:0;width:100%}
+main th{font-weight:700;color:#344f52;white-space:normal}
+main td,main th{padding-top:12px;padding-bottom:12px;vertical-align:middle}
+main table td{overflow-wrap:anywhere}
+/* Helpful focus and motion preferences */
+:where(a,button,input,select,textarea):focus-visible{outline:3px solid #10b981!important;outline-offset:3px}
+@media(min-width:1024px){main .grid{row-gap:max(18px,1.5rem)}main .grid.grid-cols-1.lg\:grid-cols-3{column-gap:22px}}
+@media(max-width:767px){main h1{font-size:clamp(1.55rem,5vw,2.1rem)!important;line-height:1.35!important}main h2{font-size:clamp(1.2rem,4.3vw,1.6rem)!important}main .rounded-3xl{border-radius:18px!important}main .p-10{padding:22px!important}main .p-12{padding:22px!important}main .p-8{padding:20px!important}main .gap-8{gap:20px!important}main .gap-10{gap:24px!important}main .text-5xl{font-size:2.15rem!important}main .text-6xl{font-size:2.5rem!important}main .flex{min-width:0}main .overflow-x-auto{overscroll-behavior-x:contain}}
+@media(max-width:480px){main .px-8{padding-left:18px!important;padding-right:18px!important}main .text-4xl{font-size:1.75rem!important}main .text-3xl{font-size:1.45rem!important}main .flex-wrap{row-gap:10px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}

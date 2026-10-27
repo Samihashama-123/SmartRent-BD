@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Fair-Rent AI Estimator - SmartRent BD{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+    <div class="text-center max-w-2xl mx-auto mb-10">
+        <div class="inline-flex items-center space-x-2 bg-violet-100 text-violet-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-3">
+            <i class="fa-solid fa-wand-magic-sparkles text-violet-600"></i>
+            <span>Smart Student Housing Valuation</span>
+        </div>
+        <h1 class="text-3xl font-extrabold text-slate-900">
+            ন্যায্য ভাড়ার আনুমানিক হিসাব
+        </h1>
+        <p class="text-slate-600 text-sm mt-2">
+            বাড়িওয়ালা কি অতিরিক্ত ভাড়া দাবি করছেন? আপনার ক্যাম্পাস এরিয়া, রুমের ধরন ও সুবিধাদি বিশ্লেষণ করে বাস্তবসম্মত ও ন্যায্য বাজার মূল্য জেনে নিন।
+        </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
+        
+        <!-- Input Form (7 cols) -->
+        <div class="md:col-span-7 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 text-xs">
+            <h3 class="font-extrabold text-sm text-slate-900 border-b pb-2 flex items-center">
+                <i class="fa-solid fa-sliders text-violet-600 mr-2"></i> আবাসন কনফিগারেশন
+            </h3>
+
+            <!-- Area -->
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">ক্যাম্পাস এলাকা (Area / Zone)</label>
+                <select id="estArea" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-medium" onchange="runEstimation()">
+                    <option value="Katabon / Nilkhet">Katabon / Nilkhet (Near BUET & DU)</option>
+                    <option value="Bashundhara R/A">Bashundhara R/A (Near NSU & IUB)</option>
+                    <option value="Mohakhali / Banani">Mohakhali / Merul Badda (Near BRACU)</option>
+                    <option value="Dhanmondi">Dhanmondi (Near UIU & Daffodil)</option>
+                    <option value="Farmgate">Farmgate / Tejgaon</option>
+                    <option value="Azimpur">Azimpur / Lalbagh</option>
+                    <option value="Mirpur">Mirpur (Near BUP & MIST)</option>
+                    <option value="Uttara">Uttara</option>
+                </select>
+            </div>
+
+            <!-- Property Type -->
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">আবাসনের ধরন (Property Type)</label>
+                <select id="estType" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-medium" onchange="runEstimation()">
+                    <option value="Mess Seat">Mess Seat (মেস সিট)</option>
+                    <option value="Single Room">Single Room Sublet (সিঙ্গেল রুম)</option>
+                    <option value="Hostel Seat">Student Hostel (হোস্টেল)</option>
+                    <option value="Bachelor Flat">Full Bachelor Flat (সম্পূর্ণ ফ্ল্যাট)</option>
+                </select>
+            </div>
+
+            <!-- Distance from Campus -->
+            <div>
+                <div class="flex justify-between font-bold text-slate-700 mb-1">
+                    <span>ক্যাম্পাস থেকে হাঁটার দূরত্ব</span>
+                    <span id="estDistVal" class="text-violet-700 font-bold">0.5 km</span>
+                </div>
+                <input type="range" id="estDist" min="0.2" max="4.0" step="0.2" value="0.5" 
+                       class="w-full accent-violet-600 cursor-pointer" 
+                       oninput="document.getElementById('estDistVal').innerText = this.value + ' km'; runEstimation();">
+            </div>
+
+            <!-- Facilities Checkboxes -->
+            <div>
+                <label class="block font-bold text-slate-700 mb-2">উপলব্ধ সুবিধাসমূহ (Included Amenities)</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="flex items-center space-x-2 cursor-pointer p-2 rounded-lg bg-slate-50 border border-slate-100">
+                        <input type="checkbox" id="facBath" checked class="rounded text-violet-600" onchange="runEstimation()">
+                        <span>অ্যাটাচড বাথরুম</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer p-2 rounded-lg bg-slate-50 border border-slate-100">
+                        <input type="checkbox" id="facGen" checked class="rounded text-violet-600" onchange="runEstimation()">
+                        <span>আইপিএস / জেনারেটর</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer p-2 rounded-lg bg-slate-50 border border-slate-100">
+                        <input type="checkbox" id="facWifi" checked class="rounded text-violet-600" onchange="runEstimation()">
+                        <span>হাই-স্পিড ওয়াইফাই</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer p-2 rounded-lg bg-slate-50 border border-slate-100">
+                        <input type="checkbox" id="facMeals" class="rounded text-violet-600" onchange="runEstimation()">
+                        <span>খালা/খাবার অন্তর্ভুক্ত</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer p-2 rounded-lg bg-slate-50 border border-slate-100">
+                        <input type="checkbox" id="facBalcony" class="rounded text-violet-600" onchange="runEstimation()">
+                        <span>ব্যক্তিগত বারান্দা</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer p-2 rounded-lg bg-slate-50 border border-slate-100">
+                        <input type="checkbox" id="facLift" class="rounded text-violet-600" onchange="runEstimation()">
+                        <span>লিফট সুবিধা</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Advertised Rent Fairness Checker -->
+            <div class="pt-3 border-t border-slate-100">
+                <label class="block font-bold text-slate-700 mb-1">বাড়িওয়ালার চাওয়া ভাড়া (ঐচ্ছিক পরীক্ষা)</label>
+                <div class="flex space-x-2">
+                    <input type="number" id="askedRent" placeholder="e.g. 4500" class="flex-grow border border-slate-300 rounded-lg p-2 font-bold font-mono" oninput="runEstimation()">
+                    <span class="text-xs text-slate-500 self-center">টাকা / মাস</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Output Result Panel (5 cols) -->
+        <div class="md:col-span-5 space-y-5">
+            <div class="bg-gradient-to-br from-violet-900 to-indigo-950 text-white p-6 rounded-2xl shadow-xl">
+                <div class="text-xs text-violet-300 font-bold uppercase tracking-wider mb-1">
+                    Estimated Fair Rent
+                </div>
+                <div class="text-4xl font-black text-white" id="recRent">
+                    ৳4,250
+                </div>
+                <div class="text-xs text-violet-200 mt-1">
+                    যৌক্তিক রেঞ্জ: <b id="rentRange" class="text-white">৳3,900 - ৳4,600</b>
+                </div>
+
+                <!-- Live Fairness Verdict -->
+                <div id="verdictBox" class="mt-5 p-3 rounded-xl bg-white/10 backdrop-blur border border-white/20 text-xs">
+                    <div class="font-bold text-emerald-300 flex items-center" id="verdictTitle">
+                        <i class="fa-solid fa-circle-check mr-1.5"></i> Fair Market Price
+                    </div>
+                    <p class="text-[11px] text-slate-200 mt-1" id="verdictMsg">
+                        এই এলাকার বর্তমান ছাত্রাবাস বাজারদরের সাথে সামঞ্জস্যপূর্ণ।
+                    </p>
+                </div>
+            </div>
+
+            <!-- Value Breakdown Card -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-xs">
+                <h4 class="font-bold text-slate-800 mb-3 flex items-center">
+                    <i class="fa-solid fa-chart-pie text-violet-600 mr-2"></i> মূল্য সংযোজন বিশ্লেষণ (Value Breakdown)
+                </h4>
+                <div class="space-y-2 text-slate-600" id="breakdownList">
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span>ক্যাম্পাস প্রক্সিমিটি (0.5 km)</span>
+                        <span class="font-bold text-slate-800">+৳400</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span>অ্যাটাচড বাথরুম সুবিধা</span>
+                        <span class="font-bold text-slate-800">+৳400</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span>আইপিএস / জেনারেটর ব্যাকআপ</span>
+                        <span class="font-bold text-slate-800">+৳250</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span>হাই-স্পিড ওয়াইফাই</span>
+                        <span class="font-bold text-slate-800">+৳200</span>
+                    </div>
+                </div>
+                <div class="mt-4 p-2.5 bg-violet-50 text-violet-800 rounded-xl text-[11px]">
+                    💡 <b>টিপস:</b> ক্যাম্পাসের ৫০০ মিটারের ভেতরের মেসগুলোতে যাতায়াত খরচ ও সময় বেঁচে যায় বিধায় কিছুটা প্রিমিয়াম ভাড়া যৌক্তিক।
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function runEstimation() {
+        const area = document.getElementById('estArea').value;
+        const type = document.getElementById('estType').value;
+        const dist = parseFloat(document.getElementById('estDist').value);
+        const bath = document.getElementById('facBath').checked;
+        const gen = document.getElementById('facGen').checked;
+        const wifi = document.getElementById('facWifi').checked;
+        const meals = document.getElementById('facMeals').checked;
+        const balcony = document.getElementById('facBalcony').checked;
+        const lift = document.getElementById('facLift').checked;
+        const asked = parseFloat(document.getElementById('askedRent').value) || 0;
+
+        let base = (type === 'Mess Seat') ? 3200 : (type === 'Single Room' ? 7500 : (type === 'Hostel Seat' ? 4500 : 19000));
+        
+        let areaMult = 1.0;
+        if (area.includes('Bashundhara')) areaMult = 1.30;
+        else if (area.includes('Dhanmondi')) areaMult = 1.35;
+        else if (area.includes('Mohakhali')) areaMult = 1.40;
+        else if (area.includes('Katabon')) areaMult = 1.10;
+        else if (area.includes('Farmgate')) areaMult = 1.15;
+        else if (area.includes('Mirpur')) areaMult = 0.90;
+
+        let rent = base * areaMult;
+        let breakdownHTML = '';
+
+        if (dist <= 0.5) {
+            const add = Math.round(base * 0.12);
+            rent += add;
+            breakdownHTML += `<div class="flex justify-between py-1 border-b border-slate-100"><span>ক্যাম্পাস সন্নিকট (< 0.5 km)</span><span class="font-bold text-slate-800">+৳${add}</span></div>`;
+        }
+
+        if (bath) {
+            const add = (type === 'Single Room') ? 1200 : 400;
+            rent += add;
+            breakdownHTML += `<div class="flex justify-between py-1 border-b border-slate-100"><span>অ্যাটাচড বাথরুম</span><span class="font-bold text-slate-800">+৳${add}</span></div>`;
+        }
+        if (gen) {
+            const add = (type === 'Single Room') ? 600 : 250;
+            rent += add;
+            breakdownHTML += `<div class="flex justify-between py-1 border-b border-slate-100"><span>আইপিএস ব্যাকআপ</span><span class="font-bold text-slate-800">+৳${add}</span></div>`;
+        }
+        if (wifi) {
+            rent += 200;
+            breakdownHTML += `<div class="flex justify-between py-1 border-b border-slate-100"><span>অপটিক্যাল ফাইবার ওয়াইফাই</span><span class="font-bold text-slate-800">+৳200</span></div>`;
+        }
+        if (meals) {
+            rent += 3500;
+            breakdownHTML += `<div class="flex justify-between py-1 border-b border-slate-100"><span>দৈনিক রান্না করা খাবার</span><span class="font-bold text-slate-800">+৳3,500</span></div>`;
+        }
+        if (balcony) {
+            rent += 300;
+            breakdownHTML += `<div class="flex justify-between py-1 border-b border-slate-100"><span>ব্যক্তিগত বারান্দা</span><span class="font-bold text-slate-800">+৳300</span></div>`;
+        }
+        if (lift) {
+            rent += 250;
+            breakdownHTML += `<div class="flex justify-between py-1 border-b border-slate-100"><span>বিল্ডিং লিফট সুবিধা</span><span class="font-bold text-slate-800">+৳250</span></div>`;
+        }
+
+        const rec = Math.round(rent / 50) * 50;
+        const minR = Math.round((rec * 0.92) / 50) * 50;
+        const maxR = Math.round((rec * 1.08) / 50) * 50;
+
+        document.getElementById('recRent').innerText = `৳${rec.toLocaleString()}`;
+        document.getElementById('rentRange').innerText = `৳${minR.toLocaleString()} - ৳${maxR.toLocaleString()}`;
+        document.getElementById('breakdownList').innerHTML = breakdownHTML || '<div class="text-slate-400 py-1">কোনো অতিরিক্ত ফিচার নির্বাচিত নেই</div>';
+
+        // Verdict
+        const vTitle = document.getElementById('verdictTitle');
+        const vMsg = document.getElementById('verdictMsg');
+
+        if (asked > 0) {
+            const diff = asked - rec;
+            const diffPct = (diff / rec) * 100;
+            if (diffPct <= -10) {
+                vTitle.innerHTML = '<i class="fa-solid fa-fire text-emerald-400 mr-1.5"></i> Exceptional Deal / Budget Friendly';
+                vMsg.innerText = `মডেলের অনুমানের চেয়ে ৳${Math.abs(diff).toLocaleString()} সাশ্রয়ী! দ্রুত বুকিং বিবেচনা করতে পারেন।`;
+            } else if (diffPct <= 8) {
+                vTitle.innerHTML = '<i class="fa-solid fa-circle-check text-teal-300 mr-1.5"></i> Fair Market Price';
+                vMsg.innerText = 'চাওয়া ভাড়া এলাকার বর্তমান ছাত্রাবাস বাজারদরের সাথে পুরোপুরি সামঞ্জস্যপূর্ণ।';
+            } else if (diffPct <= 20) {
+                vTitle.innerHTML = '<i class="fa-solid fa-circle-exclamation text-amber-300 mr-1.5"></i> Slightly Premium';
+                vMsg.innerText = `ন্যায্য মূল্যের চেয়ে ৳${diff.toLocaleString()} বেশি। ভালো লোকেশন বা অতিরিক্ত সুবিধা আছে কিনা নিশ্চিত হোন।`;
+            } else {
+                vTitle.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-rose-400 mr-1.5"></i> Overpriced / Expensive';
+                vMsg.innerText = `ন্যায্য মূল্যের চেয়ে ৳${diff.toLocaleString()} বেশি দাবি করা হচ্ছে! দামাদামি করার পরামর্শ রইল।`;
+            }
+        } else {
+            vTitle.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles text-emerald-300 mr-1.5"></i> Estimate Ready';
+            vMsg.innerText = 'উপরে আপনার বাড়িওয়ালার চাওয়া ভাড়া লিখে তাৎক্ষণিক যাচাই করুন।';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', runEstimation);
+</script>
+{% endblock %}

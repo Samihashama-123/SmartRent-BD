@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'মাসিক খরচ | SmartRent BD' if lang=='bn' else 'Living cost planner | SmartRent BD' }}{% endblock %}
+{% block content %}
+<div class="sr-feature-wrap sr-cost-wrap">
+ <header class="sr-feature-header"><div class="sr-feature-kicker"><i class="fa-solid fa-wallet"></i> {{ 'বাজেট পরিকল্পনা' if lang=='bn' else 'Budget planning' }}</div>
+ <h1>{{ 'শুধু ভাড়া নয়, মোট খরচ বুঝুন' if lang=='bn' else 'Plan the full cost of living' }}</h1>
+ <p>{{ 'ভাড়া, খাবার, বিল আর যাতায়াত একসঙ্গে যোগ করে নিজের মাসিক বাজেটের সঙ্গে মিলিয়ে দেখুন।' if lang=='bn' else 'Combine rent, food, utilities and travel to see what your housing choice really costs each month.' }}</p></header>
+ <div class="sr-cost-layout">
+   <section class="sr-feature-card sr-cost-form">
+      <h2>{{ 'আপনার মাসিক হিসাব' if lang=='bn' else 'Your monthly estimate' }}</h2>
+      {% if listing %}<p class="sr-feature-subtle">{{ 'নির্বাচিত বাসা:' if lang=='bn' else 'Selected property:' }} <a href="/listings/{{ listing.id }}">{{ tr_listing(listing,'title') }}</a></p>{% endif %}
+      <div class="sr-cost-fields" data-currency="BDT">
+       <label>{{ 'বাসা ভাড়া' if lang=='bn' else 'Monthly rent' }}<div class="sr-cost-input"><span>৳</span><input id="costRent" type="number" min="0" max="1000000" value="{{ listing.rent_amount if listing else 5000 }}"></div></label>
+       <label>{{ 'খাবার / মেস' if lang=='bn' else 'Food & meals' }}<div class="sr-cost-input"><span>৳</span><input id="costFood" type="number" min="0" max="1000000" value="3000"></div></label>
+       <label>{{ 'বিদ্যুৎ, পানি, ইন্টারনেট' if lang=='bn' else 'Utilities & internet' }}<div class="sr-cost-input"><span>৳</span><input id="costUtility" type="number" min="0" max="1000000" value="800"></div></label>
+       <label>{{ 'যাতায়াত' if lang=='bn' else 'Transport' }}<div class="sr-cost-input"><span>৳</span><input id="costTravel" type="number" min="0" max="1000000" value="600"></div></label>
+       <label>{{ 'অন্যান্য' if lang=='bn' else 'Other expenses' }}<div class="sr-cost-input"><span>৳</span><input id="costOther" type="number" min="0" max="1000000" value="500"></div></label>
+       <label>{{ 'আপনার মোট মাসিক বাজেট' if lang=='bn' else 'Your monthly budget' }}<div class="sr-cost-input"><span>৳</span><input id="costBudget" type="number" min="0" max="1000000" value="12000"></div></label>
+      </div>
+    </section>
+    <aside class="sr-feature-card sr-cost-result" aria-live="polite">
+      <div class="sr-feature-kicker">{{ 'আনুমানিক মাসিক খরচ' if lang=='bn' else 'Estimated monthly spending' }}</div>
+      <div id="costTotal" class="sr-cost-total">৳0</div>
+      <div class="sr-cost-bar"><span id="costBar"></span></div>
+      <p id="costVerdict" class="sr-cost-verdict"></p>
+      <dl class="sr-cost-breakdown" id="costBreakdown"></dl>
+      <div class="sr-feature-note">{{ 'এটি আপনার দেওয়া তথ্যের ভিত্তিতে পরিকল্পনার হিসাব, কোনো নির্দিষ্ট ভাড়ার নিশ্চয়তা নয়।' if lang=='bn' else 'Planning estimate based on your inputs. It is not a guaranteed price or financial offer.' }}</div>
+      <button class="sr-feature-secondary" onclick="window.print()"><i class="fa-solid fa-print"></i> {{ 'হিসাব প্রিন্ট করুন' if lang=='bn' else 'Print estimate' }}</button>
+    </aside>
+ </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+ const bn=document.documentElement.lang==='bn';
+ const keys=['Rent','Food','Utility','Travel','Other'];
+ const labels=bn?['বাসা ভাড়া','খাবার','ইউটিলিটি','যাতায়াত','অন্যান্য']:['Rent','Meals','Utilities','Travel','Other'];
+ function val(key){const n=Number(document.getElementById('cost'+key).value);return Number.isFinite(n)?Math.max(0,Math.min(n,1000000)):0;}
+ const money=n=>'৳'+Math.round(n).toLocaleString('en-US');
+ function update(){const entries=keys.map(k=>val(k)),total=entries.reduce((a,b)=>a+b,0),budget=val('Budget');
+ document.getElementById('costTotal').textContent=money(total);
+ const bar=document.getElementById('costBar');bar.style.width=(budget>0?Math.min(total/budget*100,100):100)+'%';
+ bar.style.background=total<=budget?'#059669':'#d97706';
+ document.getElementById('costVerdict').textContent=budget===0?(bn?'মাসিক বাজেট লিখুন।':'Enter your budget.'):(total<=budget?(bn?'বাজেটের মধ্যে আছে • বাকি ':'Within budget • Remaining '):(bn?'বাজেটের বেশি • ঘাটতি ':'Over budget • Short by '))+money(Math.abs(total-budget));
+ document.getElementById('costBreakdown').replaceChildren(...entries.map((v,i)=>{let row=document.createElement('div'),a=document.createElement('dt'),b=document.createElement('dd');a.textContent=labels[i];b.textContent=money(v);row.append(a,b);return row;}));
+ }
+ document.querySelectorAll('.sr-cost-fields input').forEach(x=>x.addEventListener('input',update));update();
+})();
+</script>
+{% endblock %}

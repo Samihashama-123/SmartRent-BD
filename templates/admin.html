@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}{{ "নিরাপত্তা ও প্রশাসনিক প্যানেল" if lang == "bn" else "Trust & Safety Admin Panel" }} - SmartRent BD{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Admin Headline Header -->
+    <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div>
+            <div class="inline-flex items-center space-x-1.5 bg-indigo-500/20 text-indigo-300 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-2">
+                <i class="fa-solid fa-shield-halved text-indigo-400"></i>
+                <span>{{ "যাচাই ও অভিযোগ পর্যালোচনা" if lang == "bn" else "Moderation & verification" }}</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                {{ "বিজ্ঞাপন অনুমোদন ও অভিযোগ পর্যালোচনা" if lang == "bn" else "Platform moderation and report review" }}
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-300 mt-1">
+                {{ "বিজ্ঞাপন অনুমোদন, রিপোর্ট যাচাই এবং প্রয়োজনীয় ব্যবস্থা গ্রহণ করুন।" if lang == "bn" else "Approve listings, review user reports and take appropriate action." }}
+            </p>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <span class="bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1.5">
+                <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                <span>{{ "মডারেশন ব্যবস্থা চালু" if lang == "bn" else "Moderation tools available" }}</span>
+            </span>
+        </div>
+    </div>
+
+    <!-- 3 Quick Metrics -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+                <span class="text-xs font-bold text-slate-500 uppercase">{{ "অনুমোদিত আবাসন" if lang == "bn" else "Approved properties" }}</span>
+                <div class="text-2xl font-black text-emerald-600 mt-1">{{ verified_count }}{% if lang == "bn" %} টি{% endif %}</div>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-rose-200 shadow-sm flex items-center justify-between bg-rose-50/20">
+            <div>
+                <span class="text-xs font-bold text-rose-600 uppercase">{{ "অপেক্ষমাণ স্ক্যাম রিপোর্ট" if lang == "bn" else "Pending scam reports" }}</span>
+                <div class="text-2xl font-black text-rose-600 mt-1">{{ reports|length }}{% if lang == "bn" %} টি অপেক্ষমাণ{% else %} pending{% endif %}</div>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-lg">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+                <span class="text-xs font-bold text-slate-500 uppercase">{{ "নিবন্ধিত ব্যবহারকারী" if lang == "bn" else "Registered users" }}</span>
+                <div class="text-2xl font-black text-indigo-600 mt-1">{{ total_users }}{% if lang == "bn" %} জন{% endif %}</div>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg">
+                <i class="fa-solid fa-users"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="space-y-8">
+        
+        <!-- SECTION 1: Reported Fake Listings & Advance Scams (Feature 8) -->
+        <div class="bg-white rounded-2xl border-2 border-rose-200 shadow-md p-6">
+            <div class="flex items-center justify-between pb-4 mb-4 border-b border-rose-100">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center text-sm font-bold">
+                        <i class="fa-solid fa-shield-virus"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-base text-rose-950">
+                            {{ "অভিযোগ পাওয়া বিজ্ঞাপন ও সন্দেহজনক প্রতারণা" if lang == "bn" else "Reported listings and suspected scams" }}
+                        </h3>
+                        <p class="text-xs text-rose-700">{{ 'রিপোর্ট চলাকালীন এই বিজ্ঞাপনগুলো পাবলিক সার্চে লুকানো থাকবে।' if lang=='bn' else 'Reported listings are hidden from public search pending review.' }}</p>
+                    </div>
+                </div>
+                <span class="text-xs font-bold {{ "bg-rose-600" if reports|length > 0 else "bg-emerald-600" }} text-white px-3 py-1 rounded-full">
+                    {% if reports|length > 0 %}{{ "ব্যবস্থা প্রয়োজন" if lang == "bn" else "Action required" }}{% else %}{{ "কোনো অপেক্ষমাণ অভিযোগ নেই" if lang == "bn" else "No pending reports" }}{% endif %}
+                </span>
+            </div>
+
+            <div class="space-y-4">
+                {% for r in reports %}
+                <div class="p-4 bg-rose-50/50 rounded-xl border border-rose-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div class="space-y-1.5 max-w-2xl">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs font-extrabold bg-rose-600 text-white px-2.5 py-0.5 rounded">
+                                {{ r.reason }}
+                            </span>
+                            <span class="text-xs text-slate-500">{{ "রিপোর্টের তারিখ:" if lang == "bn" else "Reported on" }} {{ r.created_at[:10] }}</span>
+                        </div>
+                        <h4 class="font-bold text-sm text-slate-900">{{ r.listing_title }}</h4>
+                        <div class="text-xs text-slate-600">
+                            <b>{{ "অভিযোগকারী:" if lang == "bn" else "Reported by:" }}</b> {{ r.reporter_name }} ({{ r.reporter_university }})
+                        </div>
+                        <div class="p-2.5 bg-white rounded-lg border border-rose-200 text-xs text-rose-900 font-mono">
+                            <b>{{ "অভিযোগের বিবরণ:" if lang == "bn" else "Report details:" }}</b> "{{ r.details }}"
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                        <button onclick="handleReportAction({{ r.id }}, {{ r.listing_id }}, 'takedown')" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow transition">
+                            <i class="fa-solid fa-ban mr-1"></i> {{ 'পাবলিক সার্চ থেকে সরান' if lang=='bn' else 'Remove from public view' }}
+                        </button>
+                        <button onclick="handleReportAction({{ r.id }}, {{ r.listing_id }}, 'dismiss')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition">
+                            {{ "অভিযোগ খারিজ করুন" if lang == "bn" else "Dismiss report" }}
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+
+                {% if reports|length == 0 %}
+                <div class="text-center py-6 text-slate-400 text-xs">
+                    <i class="fa-solid fa-shield-heart text-2xl text-emerald-500 mb-1 block"></i>
+                    {{ "এখন কোনো অপেক্ষমাণ স্ক্যাম রিপোর্ট নেই।" if lang == "bn" else "There are no pending scam reports." }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- SECTION 2: Listing Verification & Trust Badging (Feature 3) -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+                <div>
+                    <h3 class="font-extrabold text-base text-slate-900 flex items-center">
+                        <i class="fa-solid fa-award text-emerald-600 mr-2"></i>
+                        <span>{{ "মালিক ও আবাসন যাচাইয়ের তালিকা" if lang == "bn" else "Owner and property verification queue" }}</span>
+                    </h3>
+                    <p class="text-xs text-slate-500">{{ "মালিকের পরিচয় ও বাসা পরিদর্শন নিজে যাচাই করে তবেই অনুমোদন দিন।" if lang == "bn" else "Approve only after manually checking the owner identity and property inspection." }}</p>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-slate-50 text-slate-600 font-bold uppercase text-[11px] border-b">
+                        <tr>
+                            <th class="py-3 px-3">{{ "বিজ্ঞাপন" if lang == "bn" else "Listing" }}</th>
+                            <th class="py-3 px-3">{{ "মালিকের নাম" if lang == "bn" else "Property owner" }}</th>
+                            <th class="py-3 px-3">{{ "ভাড়া ও এলাকা" if lang == "bn" else "Rent and area" }}</th>
+                            <th class="py-3 px-3 text-center">{{ "বর্তমান অবস্থা" if lang == "bn" else "Current status" }}</th>
+                            <th class="py-3 px-3 text-right">{{ "পর্যালোচনার ব্যবস্থা" if lang == "bn" else "Moderation actions" }}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for l in all_listings %}
+                        <tr class="hover:bg-slate-50 transition">
+                            <td class="py-3.5 px-3 font-bold text-slate-900 max-w-xs truncate">
+                                {{ l.title }}
+                            </td>
+                            <td class="py-3.5 px-3">
+                                <span class="font-bold text-slate-800">{{ l.owner_name }}</span>
+                                <span class="block text-[10px] text-slate-400">{{ "বাড়ির মালিক" if lang == "bn" else "Property owner" }}</span>
+                            </td>
+                            <td class="py-3.5 px-3">
+                                <span class="font-bold text-emerald-700">৳{{ "{:,}".format(l.rent_amount) }}</span>
+                                <span class="block text-[10px] text-slate-500">{{ l.area }}</span>
+                            </td>
+                            <td class="py-3.5 px-3 text-center">
+                                {% if l.is_verified %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                    <i class="fa-solid fa-circle-check mr-1"></i> {{ "অনুমোদিত" if lang == "bn" else "Approved" }}
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                                    {{ "পর্যালোচনাধীন" if lang == "bn" else "Pending review" }}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3.5 px-3 text-right">
+                                {% if not l.is_verified %}
+                                <div class="mb-2 space-y-1 text-left text-[11px] text-slate-600">
+                                    <label class="flex items-center gap-2"><input type="checkbox" class="sr-identity" id="owner-check-{{ l.id }}" {% if l.owner_identity_checked %}checked{% endif %}> {{ 'মালিকের পরিচয় যাচাই হয়েছে' if lang=='bn' else 'Owner identity manually checked' }}</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" class="sr-inspection" id="inspection-check-{{ l.id }}" {% if l.inspection_completed %}checked{% endif %}> {{ 'বাসা পরিদর্শন করা হয়েছে' if lang=='bn' else 'Listing inspected / checked' }}</label>
+                                    <button type="button" onclick="saveVerifyChecklist({{ l.id }})" class="sr-mini-action">{{ 'যাচাই সংরক্ষণ' if lang=='bn' else 'Save checklist' }}</button>
+                                </div>
+                                <button onclick="verifyListing({{ l.id }})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm">
+                                    {{ "যাচাই করে অনুমোদন ✓" if lang == "bn" else "Approve after verification ✓" }}
+                                </button>
+                                {% else %}
+                                <button onclick="unverifyListing({{ l.id }})" class="text-slate-400 hover:text-rose-600 text-[11px] font-medium">
+                                    {{ "অনুমোদন বাতিল করুন" if lang == "bn" else "Revoke approval" }}
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="py-8 px-3 text-center text-slate-500">{{ "এখন পর্যালোচনার জন্য কোনো সক্রিয় বিজ্ঞাপন নেই।" if lang == "bn" else "No active listings to review." }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function saveVerifyChecklist(id){
+ const f=new FormData();f.append('listing_id',id);
+ f.append('owner_identity_checked',document.getElementById('owner-check-'+id).checked?'1':'0');
+ f.append('inspection_completed',document.getElementById('inspection-check-'+id).checked?'1':'0');
+ try{await checkedApiFetch('/api/admin/verify-checklist',{method:'POST',body:f});showLocalizedNotification('Saved','সংরক্ষিত হয়েছে','Verification checklist updated.','যাচাইয়ের তালিকা সংরক্ষণ হয়েছে।');}
+ catch(e){showLocalizedNotification('Error','সমস্যা হয়েছে',e.message,e.message,'error');}
+}
+</script>
+<script>
+    async function handleReportAction(reportId, listingId, action) {
+        const formData = new FormData();
+        formData.append('report_id', reportId);
+        formData.append('listing_id', listingId);
+        formData.append('action', action);
+
+        try {
+            await checkedApiFetch('/api/admin-report-action', { method: 'POST', body: formData });
+            if (action === 'takedown') {
+                showLocalizedNotification('Listing removed','বিজ্ঞাপন সরানো হয়েছে','Listing removed from public view; records are preserved.','বিজ্ঞাপনটি পাবলিক তালিকা থেকে সরানো হয়েছে; রেকর্ড সংরক্ষিত আছে।');
+            } else {
+                showLocalizedNotification('Report dismissed','অভিযোগ খারিজ হয়েছে','Report dismissed. Listing approval status is unchanged.','অভিযোগ খারিজ হয়েছে। বিজ্ঞাপনের অনুমোদনের অবস্থা অপরিবর্তিত।');
+            }
+            setTimeout(() => { window.location.reload(); }, 1200);
+        } catch(err) {
+                showLocalizedNotification(
+                    'Request failed','অনুরোধটি ব্যর্থ হয়েছে',
+                    err.message || 'Please retry.',
+                    err.message || 'আবার চেষ্টা করুন।',
+                    'error'
+                );
+            }
+    }
+
+    async function verifyListing(listingId) {
+        const formData = new FormData();
+        formData.append('listing_id', listingId);
+        formData.append('is_verified', '1');
+
+        try {
+            await checkedApiFetch('/api/admin-toggle-verify', { method: 'POST', body: formData });
+            showLocalizedNotification('Listing approved','বিজ্ঞাপন অনুমোদিত','Listing approved after review of the verification checklist.','যাচাইয়ের তালিকা পর্যালোচনা করে বিজ্ঞাপন অনুমোদন হয়েছে।');
+            setTimeout(() => { window.location.reload(); }, 1000);
+        } catch(err) {
+                showLocalizedNotification(
+                    'Request failed','অনুরোধটি ব্যর্থ হয়েছে',
+                    err.message || 'Please retry.',
+                    err.message || 'আবার চেষ্টা করুন।',
+                    'error'
+                );
+            }
+    }
+
+    async function unverifyListing(listingId) {
+        const formData = new FormData();
+        formData.append('listing_id', listingId);
+        formData.append('is_verified', '0');
+
+        try {
+            await checkedApiFetch('/api/admin-toggle-verify', { method: 'POST', body: formData });
+            showLocalizedNotification('Approval revoked','অনুমোদন বাতিল হয়েছে','Listing marked as unverified.','বিজ্ঞাপনটি এখন অনুমোদনহীন হিসেবে চিহ্নিত।');
+            setTimeout(() => { window.location.reload(); }, 1000);
+        } catch(err) {
+                showLocalizedNotification(
+                    'Request failed','অনুরোধটি ব্যর্থ হয়েছে',
+                    err.message || 'Please retry.',
+                    err.message || 'আবার চেষ্টা করুন।',
+                    'error'
+                );
+            }
+    }
+</script>
+{% endblock %}

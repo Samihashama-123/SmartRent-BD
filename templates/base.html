@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="{{ lang | default('en') }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0c332d">
+  <meta name="description" content="SmartRent BD — discover student housing, compare rents and connect with roommates in Bangladesh.">
+  <title>{% block title %}SmartRent BD{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{brand:{50:'#e9f9f1',100:'#d2f4e1',500:'#13a87a',600:'#07875f',700:'#086849',800:'#064f3b',900:'#083b30'}}}}};</script>
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link rel="stylesheet" href="/static/product.css?v=14">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="sr-app" data-page="{{ active_nav | default('home') }}">
+  {% set active_role = current_user.role if current_user else 'guest' %}
+  <a href="#page-main" class="sr-skip">{{ 'মূল বিষয়বস্তুতে যান' if lang == 'bn' else 'Skip to main content' }}</a>
+  <header class="sr-header">
+    <div class="sr-header-inner">
+      <a class="sr-brand" href="/" aria-label="SmartRent BD home">
+        <span class="sr-brand-icon"><i class="fa-solid fa-house-user"></i></span>
+        <span class="sr-brand-copy"><strong>SmartRent<span> BD</span></strong><small>{{ 'ক্যাম্পাসের পাশে আপনার ঠিকানা' if lang=='bn' else 'A better place to belong' }}</small></span>
+      </a>
+      <nav class="sr-primary-nav" aria-label="{{ 'প্রধান নেভিগেশন' if lang=='bn' else 'Main navigation' }}">
+        <a class="sr-top-link {% if active_nav=='home' %}is-active{% endif %}" href="/"><i class="fa-solid fa-house"></i>{{ t('home') }}</a>
+        <a class="sr-top-link {% if active_nav=='listings' %}is-active{% endif %}" href="/listings"><i class="fa-solid fa-magnifying-glass-location"></i>{{ t('find_housing') }}</a>
+        {% if active_role=='student' %}
+        <a class="sr-top-link {% if active_nav=='roommates' %}is-active{% endif %}" href="/roommates"><i class="fa-solid fa-user-group"></i>{{ t('roommate_match') }}</a>
+        {% elif active_role=='landlord' %}
+        <a class="sr-top-link {% if active_nav=='landlord' %}is-active{% endif %}" href="/landlord"><i class="fa-solid fa-building-user"></i>{{ 'আমার প্রপার্টি' if lang=='bn' else 'My properties' }}</a>
+        {% elif active_role=='admin' %}
+        <a class="sr-top-link {% if active_nav=='admin' %}is-active{% endif %}" href="/admin"><i class="fa-solid fa-shield-halved"></i>{{ 'অ্যাডমিন ড্যাশবোর্ড' if lang=='bn' else 'Admin dashboard' }}</a>
+        {% endif %}
+        {% if active_role not in ['guest','admin'] %}
+        <details class="sr-menu">
+          <summary class="sr-top-link {% if active_nav in ['mess','maintenance','fair_rent','agreement','compare','living_cost','my_bookings'] %}is-active{% endif %}">
+            <i class="fa-solid fa-layer-group"></i>{{ 'আরও সেবা' if lang=='bn' else 'More tools' }}<i class="fa-solid fa-chevron-down sr-chevron"></i>
+          </summary>
+          <div class="sr-menu-panel">
+            {% if active_role=='student' %}
+              <a href="/my-bookings"><i class="fa-solid fa-calendar-check"></i>{{ 'আমার ভিজিট ও বুকিং' if lang=='bn' else 'My visits & bookings' }}</a>
+              <a href="/mess-manager"><i class="fa-solid fa-utensils"></i>{{ 'মেস ব্যবস্থাপনা' if lang=='bn' else 'Mess manager' }}</a>
+            {% endif %}
+            <a href="/maintenance"><i class="fa-solid fa-screwdriver-wrench"></i>{{ 'মেরামতের অনুরোধ' if lang=='bn' else 'Maintenance' }}</a>
+            {% if active_role == 'student' %}
+            <a href="/fair-rent"><i class="fa-solid fa-calculator"></i>{{ 'ন্যায্য ভাড়ার হিসাব' if lang=='bn' else 'Fair rent estimator' }}</a>
+            <a href="/living-cost"><i class="fa-solid fa-wallet"></i>{{ 'মাসিক খরচ' if lang=='bn' else 'Living cost planner' }}</a>
+            <a href="/compare"><i class="fa-solid fa-scale-balanced"></i>{{ 'বাসা তুলনা' if lang=='bn' else 'Compare homes' }}</a>
+            {% endif %}
+            <a href="/agreement"><i class="fa-solid fa-file-contract"></i>{{ 'খসড়া চুক্তিপত্র' if lang=='bn' else 'Rental agreement draft' }}</a>
+          </div>
+        </details>
+        {% endif %}
+      </nav>
+      <div class="sr-header-actions">
+        <div class="sr-lang" aria-label="Select language">
+          <a lang="en" href="/set-language?lang=en" class="{% if lang=='en' %}selected{% endif %}" aria-label="English" {% if lang=='en' %}aria-current="true"{% endif %}>EN</a>
+          <a lang="bn" href="/set-language?lang=bn" class="{% if lang=='bn' %}selected{% endif %}" aria-label="বাংলা" {% if lang=='bn' %}aria-current="true"{% endif %}>বাং</a>
+        </div>
+        {% if current_user %}
+        <a class="sr-account" href="/profile" aria-label="{{ t('profile') }}">
+          <img src="{{ current_user.avatar or 'https://ui-avatars.com/api/?name=User&background=e2eee7' }}" alt="" loading="lazy">
+          <span><strong>{{ current_user.name.split()[0] }}</strong><small>{{ t(active_role) }}</small></span>
+        </a>
+        {% else %}
+        <a class="sr-header-login" href="/login"><i class="fa-solid fa-right-to-bracket"></i>{{ 'লগইন' if lang=='bn' else 'Sign in' }}</a>
+        <a class="sr-header-signup" href="/register">{{ 'অ্যাকাউন্ট খুলুন' if lang=='bn' else 'Get started' }}</a>
+        {% endif %}
+        <button type="button" class="sr-mobile-toggle" aria-label="{{ 'মেনু খুলুন' if lang=='bn' else 'Open menu' }}" aria-controls="sr-mobile-menu" aria-expanded="false" onclick="toggleSmartRentMenu(this)"><i class="fa-solid fa-bars"></i></button>
+      </div>
+    </div>
+    <nav id="sr-mobile-menu" class="sr-mobile-menu" aria-label="{{ 'মোবাইল নেভিগেশন' if lang=='bn' else 'Mobile navigation' }}" hidden>
+      <a href="/"><i class="fa-solid fa-house"></i>{{ t('home') }}</a>
+      <a href="/listings"><i class="fa-solid fa-magnifying-glass-location"></i>{{ t('find_housing') }}</a>
+      {% if active_role=='student' %}
+      <a href="/roommates"><i class="fa-solid fa-user-group"></i>{{ t('roommate_match') }}</a>
+      <a href="/my-bookings"><i class="fa-solid fa-calendar-check"></i>{{ 'আমার বুকিং' if lang=='bn' else 'My bookings' }}</a>
+      <a href="/mess-manager"><i class="fa-solid fa-utensils"></i>{{ t('mess_manager') }}</a>
+      {% elif active_role=='landlord' %}
+      <a href="/landlord"><i class="fa-solid fa-building-user"></i>{{ 'মালিকের ড্যাশবোর্ড' if lang=='bn' else 'My properties' }}</a>
+      {% elif active_role=='admin' %}
+      <a href="/admin"><i class="fa-solid fa-shield-halved"></i>{{ t('admin') }}</a>
+      {% endif %}
+      {% if active_role in ['student','landlord'] %}
+      <a href="/maintenance"><i class="fa-solid fa-screwdriver-wrench"></i>{{ t('maintenance') }}</a>
+      {% if active_role == 'student' %}
+      <a href="/fair-rent"><i class="fa-solid fa-calculator"></i>{{ t('fair_rent') }}</a>
+      <a href="/compare"><i class="fa-solid fa-scale-balanced"></i>{{ 'বাসা তুলনা' if lang=='bn' else 'Compare homes' }}</a>
+      <a href="/living-cost"><i class="fa-solid fa-wallet"></i>{{ 'মাসিক খরচ' if lang=='bn' else 'Living cost planner' }}</a>
+      {% endif %}
+      <a href="/agreement"><i class="fa-solid fa-file-contract"></i>{{ t('agreement') }}</a>
+      {% endif %}
+      {% if current_user %}
+      <a href="/profile"><i class="fa-solid fa-user-circle"></i>{{ t('profile') }}</a>
+      <a href="/logout"><i class="fa-solid fa-arrow-right-from-bracket"></i>{{ t('logout') }}</a>
+      {% else %}
+      <a href="/login"><i class="fa-solid fa-right-to-bracket"></i>{{ 'লগইন' if lang=='bn' else 'Sign in' }}</a>
+      <a href="/register"><i class="fa-solid fa-user-plus"></i>{{ 'নিবন্ধন' if lang=='bn' else 'Create account' }}</a>
+      {% endif %}
+    </nav>
+  </header>
+  <div class="sr-info-strip" role="note"><span><i class="fa-solid fa-shield-heart"></i></span><p>{{ t('scam_warning') }}</p><span class="sr-demo-label">{{ 'বাস্তব অর্থ লেনদেন নেই' if lang=='bn' else 'No payment processing' }}</span></div>
+  {% if active_nav != 'home' %}
+  {% set fallback = '/listings' if active_nav in ['listing_detail', 'compare'] else ('/profile' if active_nav in ['maintenance', 'my_bookings'] else '/') %}
+  <div class="sr-trail" aria-label="{{ 'পেজে ফেরার পথ' if lang=='bn' else 'Page navigation' }}">
+    <a id="sr-smart-back" href="{{ fallback }}" onclick="smartRentBack(event, this)"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> {{ 'পেছনে যান' if lang=='bn' else 'Go back' }}</a>
+    <span class="sr-trail-divider" aria-hidden="true">/</span>
+    <a href="/">{{ 'হোম' if lang=='bn' else 'Home' }}</a>
+    {% if active_nav != 'listings' %}<span class="sr-trail-divider" aria-hidden="true">/</span><a href="/listings">{{ 'বাসা খুঁজুন' if lang=='bn' else 'Find housing' }}</a>{% endif %}
+    {% if active_role == 'student' %}<a class="sr-trail-bookings" href="/my-bookings"><i class="fa-regular fa-calendar-check"></i> {{ 'আমার বুকিং' if lang=='bn' else 'My bookings' }}</a>{% endif %}
+  </div>
+  {% endif %}
+  <main id="page-main" class="sr-main">{% block content %}{% endblock %}</main>
+  <footer class="sr-footer sr-footer-expanded">
+    <div class="sr-footer-inner">
+      <div class="sr-footer-grid">
+        <div class="sr-footer-about"><strong><i class="fa-solid fa-house-user"></i> SmartRent BD</strong><p>{{ 'ক্যাম্পাসের কাছে বাসা খোঁজা, ভাড়া তুলনা ও রুমমেট খোঁজা—সব এক জায়গায়।' if lang=='bn' else 'Discover student housing, compare rent and find compatible roommates in one place.' }}</p><div class="sr-footer-trust"><i class="fa-solid fa-shield-heart"></i> {{ 'নিরাপদ সিদ্ধান্তের জন্য আগে যাচাই করুন' if lang=='bn' else 'Verify before you commit' }}</div></div>
+        <div class="sr-footer-column">
+          <h3>{{ 'দ্রুত লিংক' if lang=='bn' else 'Quick links' }}</h3>
+          <a href="/listings">{{ 'সব বাসা দেখুন' if lang=='bn' else 'Browse housing' }}</a>
+          {% if active_role == 'student' %}
+          <a href="/roommates">{{ 'রুমমেট খুঁজুন' if lang=='bn' else 'Find roommates' }}</a>
+          <a href="/my-bookings">{{ 'আমার বুকিং' if lang=='bn' else 'My bookings' }}</a>
+          <a href="/compare">{{ 'বাসা তুলনা' if lang=='bn' else 'Compare homes' }}</a>
+          {% elif active_role == 'landlord' %}
+          <a href="/landlord">{{ 'আমার প্রপার্টি' if lang=='bn' else 'My properties' }}</a>
+          {% elif active_role == 'admin' %}
+          <a href="/admin">{{ 'অ্যাডমিন ড্যাশবোর্ড' if lang=='bn' else 'Admin dashboard' }}</a>
+          {% endif %}
+        </div>
+        <div class="sr-footer-column">
+          <h3>{{ 'প্রয়োজনীয় সেবা' if lang=='bn' else 'Useful services' }}</h3>
+          {% if active_role == 'student' %}
+          <a href="/mess-manager">{{ 'মেসের হিসাব' if lang=='bn' else 'Mess manager' }}</a>
+          <a href="/maintenance">{{ 'মেরামতের অনুরোধ' if lang=='bn' else 'Maintenance requests' }}</a>
+          <a href="/fair-rent">{{ 'ন্যায্য ভাড়া' if lang=='bn' else 'Fair rent estimate' }}</a>
+          <a href="/living-cost">{{ 'মাসিক মোট খরচ' if lang=='bn' else 'Living cost planner' }}</a>
+          <a href="/agreement">{{ 'খসড়া চুক্তিপত্র' if lang=='bn' else 'Rental agreement draft' }}</a>
+          {% elif active_role == 'landlord' %}
+          <a href="/maintenance">{{ 'মেরামতের অনুরোধ' if lang=='bn' else 'Maintenance requests' }}</a>
+          <a href="/agreement">{{ 'খসড়া চুক্তিপত্র' if lang=='bn' else 'Rental agreement draft' }}</a>
+          {% elif active_role == 'admin' %}
+          <a href="/admin">{{ 'বিজ্ঞাপন ও রিপোর্ট যাচাই' if lang=='bn' else 'Review listings and reports' }}</a>
+          {% else %}
+          <a href="/login">{{ 'লগইন' if lang=='bn' else 'Sign in' }}</a>
+          <a href="/register">{{ 'অ্যাকাউন্ট খুলুন' if lang=='bn' else 'Create an account' }}</a>
+          {% endif %}
+          {% if current_user %}<a href="/profile">{{ 'আমার প্রোফাইল' if lang=='bn' else 'My profile' }}</a>{% endif %}
+        </div>
+        <div class="sr-footer-column sr-footer-find"><h3>{{ 'দ্রুত বাসা খুঁজুন' if lang=='bn' else 'Quick property search' }}</h3><p>{{ 'এলাকার নাম দিয়ে খোঁজা শুরু করুন।' if lang=='bn' else 'Start by entering a neighborhood.' }}</p><form action="/listings" method="get" class="sr-footer-search"><label class="sr-visually-hidden" for="footer-area">{{ 'এলাকার নাম' if lang=='bn' else 'Area' }}</label><input id="footer-area" name="area" placeholder="{{ 'যেমন: বগুড়া বা ধানমন্ডি' if lang=='bn' else 'e.g. Bogura or Dhanmondi' }}" required><button type="submit" aria-label="{{ 'বাসা খুঁজুন' if lang=='bn' else 'Find housing' }}"><i class="fa-solid fa-arrow-right"></i></button></form><a href="/listings" class="sr-footer-all">{{ 'সব ফিল্টার ব্যবহার করুন' if lang=='bn' else 'Browse with all filters' }} <i class="fa-solid fa-arrow-up-right-from-square"></i></a></div>
+      </div>
+      <div class="sr-footer-bottom"><small>© 2026 SmartRent BD · {{ 'শিক্ষার্থীদের জন্য তৈরি' if lang=='bn' else 'Built for students' }}</small><small><i class="fa-solid fa-circle-info"></i> {{ 'বাসা ও পরিচয় যাচাই না করে টাকা পাঠাবেন না।' if lang=='bn' else 'Never pay before verifying the property and identity.' }}</small></div>
+    </div>
+  </footer>
+  <script>
+    const SMARTRENT_LANGUAGE=document.documentElement.lang||'en';
+    function smartRentBack(event, anchor){
+      // Browser Back is only used for an actual previous page on this origin.
+      // Opening a page directly (or after switching language) uses its safe link.
+      try {
+        const ref = new URL(document.referrer);
+        if(ref.origin === location.origin && ref.pathname !== location.pathname &&
+           ref.pathname !== '/set-language' && ref.pathname !== '/login' &&
+           window.history.length > 1){ event.preventDefault(); window.history.back(); }
+      } catch (_) { /* The explicit fallback link still works. */ }
+    }
+    function toggleSmartRentMenu(button){
+      const nav=document.getElementById('sr-mobile-menu');
+      const open=nav.hasAttribute('hidden');
+      if(open)nav.removeAttribute('hidden');else nav.setAttribute('hidden','');
+      button.setAttribute('aria-expanded',String(open));
+      button.querySelector('i').className=open?'fa-solid fa-xmark':'fa-solid fa-bars';
+    }
+    function showNotification(title,text,icon='success'){
+      const trans=window.smartRentTranslate||((x)=>x);
+      if(typeof Swal==='undefined'){
+        if(icon==='error')alert(trans(title)+': '+trans(text));
+        else console.info(trans(title),trans(text));
+        return;
+      }
+      Swal.fire({title:trans(title),text:trans(text),icon,confirmButtonColor:'#08795b',timer:3500});
+    }
+    function showLocalizedNotification(titleEn,titleBn,textEn,textBn,icon='success'){
+      const bn=SMARTRENT_LANGUAGE==='bn';
+      showNotification(bn?titleBn:titleEn,bn?textBn:textEn,icon);
+    }
+    async function checkedApiFetch(url,options){
+      const response=await fetch(url,{credentials:'same-origin',...options});
+      if(!response.ok){
+        let details='Request failed ('+response.status+')';
+        try{const data=await response.clone().json();if(data.detail)details=typeof data.detail==='string'?data.detail:JSON.stringify(data.detail)}catch(e){}
+        throw new Error(details);
+      }
+      return response;
+    }
+  </script>
+  <script defer src="/static/ui_translate.js?v=14"></script>
+  <script defer src="/static/product.js?v=14"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

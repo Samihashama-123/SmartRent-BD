@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ 'আমার ভিজিট ও বুকিং | SmartRent BD' if lang=='bn' else 'My visits and bookings | SmartRent BD' }}{% endblock %}
+{% block content %}
+<section class="sr-feature-wrap">
+  <header class="sr-feature-header">
+    <div class="sr-feature-kicker"><i class="fa-solid fa-calendar-check"></i> {{ 'আমার আবাসন অনুরোধ' if lang=='bn' else 'My housing requests' }}</div>
+    <h1>{{ 'ভিজিট ও বুকিংয়ের অবস্থা' if lang=='bn' else 'Your visits & bookings' }}</h1>
+    <p>{{ 'কোন বাসায় অনুরোধ করেছেন, মালিক সময় নির্ধারণ করেছেন কি না এবং বুকিং নিশ্চিত হয়েছে কি না—সব এক জায়গায়।' if lang=='bn' else 'See which visits are pending, when owners schedule a visit, and whether a booking is confirmed.' }}</p>
+  </header>
+  <div class="sr-journey-note"><i class="fa-solid fa-route"></i><span>{{ 'ধাপগুলো: বাসার বিস্তারিত → ভিজিটের অনুরোধ → মালিকের সময় নির্ধারণ → বুকিং অনুরোধ → মালিকের নিশ্চিতকরণ। কোনো পেমেন্ট নয়।' if lang=='bn' else 'Process: property details → visit request → owner schedules visit → booking request → owner confirms. No payments.' }}</span></div>
+  {% if not bookings %}
+  <div class="sr-feature-card sr-feature-empty"><i class="fa-solid fa-house-circle-check"></i>
+    <h2>{{ 'এখনো কোনো ভিজিট বা বুকিং নেই' if lang=='bn' else 'No visits or bookings yet' }}</h2>
+    <p>{{ 'পছন্দের বাসার বিস্তারিত পেজে গিয়ে প্রথম ভিজিটের অনুরোধ পাঠান।' if lang=='bn' else 'Visit a property detail page and start by requesting a visit.' }}</p>
+    <a class="sr-feature-primary" href="/listings">{{ 'বাসা খুঁজুন' if lang=='bn' else 'Find housing' }} <i class="fa-solid fa-arrow-right"></i></a>
+  </div>
+  {% else %}
+  <div class="sr-bookings-grid">
+  {% for item in bookings %}
+   <article class="sr-feature-card sr-booking-item">
+    <div>
+      <div class="sr-feature-kicker"><i class="fa-solid fa-location-dot"></i> {{ tr_enum(item.area) }}</div>
+      <h2>{{ item.listing_title }}</h2>
+      <div class="sr-booking-meta"><span><i class="fa-regular fa-calendar"></i> {{ item.visit_date }}</span><span><i class="fa-regular fa-clock"></i> {{ item.time_slot }}</span><span><i class="fa-solid fa-user"></i> {{ item.owner_name }}</span></div>
+      <p>{% if item.status=='visit_requested' %}{{ 'ভিজিটের অনুরোধ পাঠানো হয়েছে। মালিকের সময় নির্ধারণের অপেক্ষায়।' if lang=='bn' else 'Visit requested. Waiting for the owner to schedule a time.' }}
+      {% elif item.status=='visit_scheduled' %}{{ 'মালিক ভিজিটের সময় ঠিক করেছেন। এখন বাসার বিস্তারিত পেজে গিয়ে বুকিং অনুরোধ পাঠাতে পারবেন।' if lang=='bn' else 'The owner scheduled your visit. Open property details to request booking.' }}
+      {% elif item.status=='booking_requested' %}{{ 'বুকিংয়ের অনুরোধ জমা হয়েছে। মালিকের চূড়ান্ত সিদ্ধান্তের অপেক্ষায়।' if lang=='bn' else 'Booking requested. Waiting for landlord confirmation.' }}
+      {% elif item.status=='booked' %}{{ 'বুকিং নিশ্চিত হয়েছে। এখন মেরামতের অনুরোধ ও রিভিউ দিতে পারবেন।' if lang=='bn' else 'Booking confirmed. You can now request maintenance and leave a tenant review.' }}
+      {% else %}{{ 'অনুরোধের অবস্থা পরিবর্তিত হয়েছে। প্রয়োজনে মালিকের সঙ্গে যোগাযোগ করুন।' if lang=='bn' else 'Your request status has changed. Contact the landlord if needed.' }}{% endif %}</p>
+      <div class="sr-booking-actions"><a class="sr-feature-primary" href="/listings/{{ item.listing_id }}">{{ 'বাসার বিস্তারিত' if lang=='bn' else 'Property details' }} <i class="fa-solid fa-arrow-right"></i></a>
+      {% if item.status=='booked' %}<a class="sr-feature-secondary" href="/maintenance">{{ 'মেরামতের অনুরোধ' if lang=='bn' else 'Request maintenance' }}</a>{% endif %}</div>
+    </div>
+    <span class="sr-booking-status {% if item.status=='booked' %}is-booked{% elif item.status in ['declined','cancelled'] %}is-declined{% endif %}">
+      {% if item.status=='visit_requested' %}{{ 'ভিজিট অপেক্ষমাণ' if lang=='bn' else 'Visit pending' }}
+      {% elif item.status=='visit_scheduled' %}{{ 'ভিজিট নির্ধারিত' if lang=='bn' else 'Visit scheduled' }}
+      {% elif item.status=='booking_requested' %}{{ 'বুকিং অপেক্ষমাণ' if lang=='bn' else 'Booking pending' }}
+      {% elif item.status=='booked' %}{{ 'বুকিং নিশ্চিত' if lang=='bn' else 'Booked' }}
+      {% else %}{{ 'অনুরোধ বন্ধ' if lang=='bn' else 'Request closed' }}{% endif %}
+    </span>
+   </article>
+  {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

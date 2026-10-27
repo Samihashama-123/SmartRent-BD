@@ -1,0 +1,651 @@
+{% extends "base.html" %}
+
+{% block title %}{{ tr_listing(listing, "title") }} - SmartRent BD{% endblock %}
+
+{% block extra_head %}
+<style>
+    #detailMap {
+        height: 260px;
+        width: 100%;
+        border-radius: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Top Breadcrumbs & Back -->
+    <div class="flex items-center justify-between text-xs text-slate-500 mb-4">
+        <div class="flex items-center space-x-2">
+            <a href="/listings?role={{ (current_user.role if current_user else 'guest') }}" class="hover:text-emerald-600 flex items-center">
+                <i class="fa-solid fa-arrow-left mr-1"></i> {{ 'বাসার তালিকায় ফিরুন' if lang=='bn' else 'Back to housing' }}
+            </a>
+            <span>/</span>
+            <span class="text-slate-800 font-medium">{{ tr_enum(listing.area) }}</span>
+            <span>/</span>
+            <span class="text-slate-500 line-clamp-1 max-w-[200px]">{{ tr_listing(listing, "title") }}</span>
+        </div>
+
+        <!-- Scam Report Button (Feature 8) -->
+        {% if current_user %}<button onclick="openReportModal()" class="text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg font-bold flex items-center space-x-1 transition">
+            <i class="fa-solid fa-flag"></i>
+            <span>Report Scam / Fake Listing</span>
+        </button>{% else %}<a href="/login?next={{ request.url.path }}" class="sr-mini-action"><i class="fa-solid fa-flag"></i> {{ 'রিপোর্ট করতে লগইন করুন' if lang=='bn' else 'Sign in to report' }}</a>{% endif %}
+    </div>
+
+    <!-- Main Grid: Left Photos & Details, Right Action Sidebar -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- Left 2 Cols: Content, Facilities, Reviews -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <!-- Photo Gallery Carousel -->
+            {% set photos = listing.photos|from_json %}
+            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <div class="relative h-80 sm:h-96 bg-slate-100">
+                    <img id="mainPhoto" src="{{ photos[0] if photos else 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800' }}" 
+                         alt="{{ tr_listing(listing, "title") }}" 
+                         class="w-full h-full object-cover">
+                    
+                    <!-- Verified Shield Badge -->
+                    {% if listing.is_verified %}
+                    <div class="absolute top-4 left-4 bg-emerald-600/95 backdrop-blur text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-lg flex items-center space-x-1.5">
+                        <i class="fa-solid fa-shield-check text-sm"></i>
+                        <span>{{ ('পরিচয় ও পরিদর্শন যাচাইকৃত' if lang=='bn' else 'Owner & inspection checked') if listing.owner_identity_checked and listing.inspection_completed else ('অ্যাডমিন অনুমোদিত বিজ্ঞাপন' if lang=='bn' else 'Admin-approved listing') }}</span>
+                    </div>
+                    {% endif %}
+
+                    <!-- Gender Badge -->
+                    <div class="absolute top-4 right-4 bg-slate-900/80 backdrop-blur text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow">
+                        {{ tr_enum(listing.gender_policy) }}
+                    </div>
+                </div>
+
+                <!-- Thumbnails Bar -->
+                {% if photos|length > 1 %}
+                <div class="p-3 bg-slate-50 border-t border-slate-100 flex space-x-3 overflow-x-auto">
+                    {% for p in photos %}
+                    <img src="{{ p }}" alt="Thumbnail" onclick="document.getElementById('mainPhoto').src = this.src" 
+                         class="w-16 h-14 object-cover rounded-lg cursor-pointer border-2 border-transparent hover:border-emerald-500 transition flex-shrink-0">
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Property Headline & Key Specs -->
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-md">
+                        {{ tr_enum(listing.property_type) }}
+                    </span>
+                    <span class="text-xs text-slate-500 flex items-center">
+                        <i class="fa-solid fa-calendar text-emerald-600 mr-1"></i> Available from: <b class="text-slate-800 ml-1">{{ listing.availability_date }}</b>
+                    </span>
+                </div>
+
+                <h1 class="text-2xl font-extrabold text-slate-900 leading-snug mb-2">
+                    {{ tr_listing(listing, "title") }}
+                </h1>
+
+                <div class="flex items-center text-xs text-slate-600 space-x-4 mb-4">
+                    <span class="flex items-center">
+                        <i class="fa-solid fa-location-dot text-rose-500 mr-1"></i> {{ listing.address }} ({{ tr_enum(listing.area) }})
+                    </span>
+                    <span class="flex items-center font-bold text-indigo-700">
+                        <i class="fa-solid fa-person-walking mr-1"></i> {{ listing.distance_km }} km to {{ listing.university_nearby }}
+                    </span>
+                </div>
+
+                <!-- Description -->
+                <div class="border-t border-slate-100 pt-4">
+                    <h3 class="text-sm font-bold text-slate-900 mb-2">About this Accommodation</h3>
+                    <p class="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line">
+                        {{ tr_listing(listing, "description") }}
+                    </p>
+                </div>
+
+                <!-- Utilities Breakdown -->
+                {% if listing.utilities_desc %}
+                <div class="mt-4 p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 flex items-start space-x-2">
+                    <i class="fa-solid fa-bolt text-amber-500 text-base mt-0.5"></i>
+                    <div>
+                        <b class="text-slate-900">Utilities & Bills Policy:</b>
+                        <p class="mt-0.5">{{ listing.utilities_desc }}</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Facilities & Amenities Checklist (Feature 1) -->
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 class="text-sm font-bold text-slate-900 mb-4 flex items-center">
+                    <i class="fa-solid fa-list-check text-emerald-600 mr-2"></i> Facilities & Amenities Included
+                </h3>
+                {% set facs = listing.facilities|from_json %}
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                    <div class="flex items-center space-x-2.5 p-2.5 rounded-xl {% if 'wifi' in facs %}bg-emerald-50 text-emerald-900 border border-emerald-200{% else %}bg-slate-50 text-slate-400{% endif %}">
+                        <i class="fa-solid fa-wifi {% if 'wifi' in facs %}text-emerald-600{% endif %} text-base"></i>
+                        <span class="font-medium">Optical Fiber Wi-Fi</span>
+                    </div>
+                    <div class="flex items-center space-x-2.5 p-2.5 rounded-xl {% if 'generator' in facs %}bg-emerald-50 text-emerald-900 border border-emerald-200{% else %}bg-slate-50 text-slate-400{% endif %}">
+                        <i class="fa-solid fa-bolt {% if 'generator' in facs %}text-emerald-600{% endif %} text-base"></i>
+                        <span class="font-medium">IPS / Generator Backup</span>
+                    </div>
+                    <div class="flex items-center space-x-2.5 p-2.5 rounded-xl {% if 'water_247' in facs %}bg-emerald-50 text-emerald-900 border border-emerald-200{% else %}bg-slate-50 text-slate-400{% endif %}">
+                        <i class="fa-solid fa-faucet-drip {% if 'water_247' in facs %}text-emerald-600{% endif %} text-base"></i>
+                        <span class="font-medium">24/7 Deep Tube Water</span>
+                    </div>
+                    <div class="flex items-center space-x-2.5 p-2.5 rounded-xl {% if 'meals' in facs %}bg-emerald-50 text-emerald-900 border border-emerald-200{% else %}bg-slate-50 text-slate-400{% endif %}">
+                        <i class="fa-solid fa-bowl-food {% if 'meals' in facs %}text-emerald-600{% endif %} text-base"></i>
+                        <span class="font-medium">Daily Cooked Meals</span>
+                    </div>
+                    <div class="flex items-center space-x-2.5 p-2.5 rounded-xl {% if 'attached_bath' in facs %}bg-emerald-50 text-emerald-900 border border-emerald-200{% else %}bg-slate-50 text-slate-400{% endif %}">
+                        <i class="fa-solid fa-shower {% if 'attached_bath' in facs %}text-emerald-600{% endif %} text-base"></i>
+                        <span class="font-medium">Attached Washroom</span>
+                    </div>
+                    <div class="flex items-center space-x-2.5 p-2.5 rounded-xl {% if 'balcony' in facs %}bg-emerald-50 text-emerald-900 border border-emerald-200{% else %}bg-slate-50 text-slate-400{% endif %}">
+                        <i class="fa-solid fa-door-open {% if 'balcony' in facs %}text-emerald-600{% endif %} text-base"></i>
+                        <span class="font-medium">Private Balcony</span>
+                    </div>
+                    <div class="flex items-center space-x-2.5 p-2.5 rounded-xl {% if 'lift' in facs %}bg-emerald-50 text-emerald-900 border border-emerald-200{% else %}bg-slate-50 text-slate-400{% endif %}">
+                        <i class="fa-solid fa-elevator {% if 'lift' in facs %}text-emerald-600{% endif %} text-base"></i>
+                        <span class="font-medium">Passenger Lift</span>
+                    </div>
+                    <div class="flex items-center space-x-2.5 p-2.5 rounded-xl {% if 'cctv' in facs %}bg-emerald-50 text-emerald-900 border border-emerald-200{% else %}bg-slate-50 text-slate-400{% endif %}">
+                        <i class="fa-solid fa-video {% if 'cctv' in facs %}text-emerald-600{% endif %} text-base"></i>
+                        <span class="font-medium">24/7 CCTV & Guard</span>
+                    </div>
+                    <div class="flex items-center space-x-2.5 p-2.5 rounded-xl {% if 'refrigerator' in facs %}bg-emerald-50 text-emerald-900 border border-emerald-200{% else %}bg-slate-50 text-slate-400{% endif %}">
+                        <i class="fa-solid fa-kitchen-set {% if 'refrigerator' in facs %}text-emerald-600{% endif %} text-base"></i>
+                        <span class="font-medium">Shared Refrigerator</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leaflet Map Location -->
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 class="text-sm font-bold text-slate-900 mb-3 flex items-center">
+                    <i class="fa-solid fa-map-location-dot text-emerald-600 mr-2"></i> Exact Location & Campus Proximity
+                </h3>
+                <div id="detailMap"></div>
+            </div>
+
+            <!-- Student Reviews & Ratings (Feature 7) -->
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900 flex items-center">
+                            <i class="fa-solid fa-star text-amber-500 mr-2"></i> Student Reviews ({{ reviews|length }})
+                        </h3>
+                        <p class="text-[11px] text-slate-500">{{ 'শুধু মালিক কর্তৃক নিশ্চিত বুকিং থাকা ভাড়াটিয়া রিভিউ দিতে পারবেন।' if lang=='bn' else 'Only tenants with landlord-confirmed bookings can publish a review.' }}</p>
+                    </div>
+                    {% if confirmed_tenant %}<button onclick="openReviewModal()" class="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-3 py-1.5 rounded-lg transition border border-emerald-200">
+                        <i class="fa-solid fa-pen-to-square mr-1"></i> {{ 'রিভিউ লিখুন' if lang=='bn' else 'Write a review' }}
+                    </button>{% else %}<span class="text-[11px] text-slate-500">{{ 'বুকিং নিশ্চিত হলে রিভিউ দেওয়া যাবে' if lang=='bn' else 'Review unlocked after confirmed booking' }}</span>{% endif %}
+                </div>
+
+                {% if reviews %}
+                <div class="space-y-4">
+                    {% for rev in reviews %}
+                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-xs text-slate-800">{{ rev.student_name }}</span>
+                                {% if rev.is_verified_tenant %}
+                                <span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center">
+                                    <i class="fa-solid fa-circle-check text-[9px] mr-1"></i> Student Review
+                                </span>
+                                {% endif %}
+                            </div>
+                            <!-- Stars -->
+                            <div class="flex text-amber-400 text-xs">
+                                {% for i in range(rev.rating) %}
+                                <i class="fa-solid fa-star"></i>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-600 leading-relaxed">{{ rev.comment }}</p>
+                        <div class="mt-2 text-[10px] text-slate-400 flex items-center space-x-3">
+                            <span>Cleanliness: {{ rev.cleanliness_rating or 5 }}/5</span>
+                            <span>•</span>
+                            <span>Owner: {{ rev.owner_rating or 5 }}/5</span>
+                            <span>•</span>
+                            <span>Facilities: {{ rev.facilities_rating or 5 }}/5</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-6 text-slate-400 text-xs">
+                    No reviews yet. Share your experience if you stayed here.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Right 1 Col: Pricing, Landlord Card, Visit & Booking CTA -->
+        <div class="space-y-6">
+            
+            <!-- Pricing & Booking Card -->
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-lg sticky top-28 space-y-5">
+                
+                {% if not current_user %}
+                <div class="sr-booking-guide"><div class="sr-booking-guide-title"><i class="fa-solid fa-circle-info"></i><strong>{{ 'বুকিং করার আগে লগইন করুন' if lang=='bn' else 'Sign in to request a visit' }}</strong></div><p class="sr-feature-note">{{ 'বাসা দেখতে লগইন প্রয়োজন নেই। ভিজিট বা বুকিংয়ের জন্য শিক্ষার্থী অ্যাকাউন্ট দিয়ে লগইন করুন।' if lang=='bn' else 'Browsing is free. Sign in as a student to request visits and bookings.' }}</p><a href="/login?next={{ request.url.path }}" class="sr-feature-primary" style="display:inline-flex;margin-top:10px">{{ 'লগইন করুন' if lang=='bn' else 'Sign in' }}</a></div>
+                {% elif (current_user.role if current_user else 'guest') == 'student' %}
+                <div class="sr-booking-guide" id="booking-steps">
+                  <div class="sr-booking-guide-title"><i class="fa-solid fa-route"></i><strong>{{ 'বাসা বুকিং করার নিয়ম' if lang=='bn' else 'How booking works' }}</strong><a href="/my-bookings">{{ 'স্ট্যাটাস দেখুন' if lang=='bn' else 'Track status' }} <i class="fa-solid fa-arrow-up-right-from-square"></i></a></div>
+                  <ol class="sr-booking-steps">
+                    <li class="{% if my_visits %}is-done{% else %}is-current{% endif %}"><span>1</span><div><strong>{{ 'ভিজিটের অনুরোধ' if lang=='bn' else 'Request a visit' }}</strong><small>{{ 'আপনার পছন্দের দিন ও সময় জানান' if lang=='bn' else 'Choose a preferred date and time' }}</small></div></li>
+                    <li class="{% if scheduled_visit or pending_booking or confirmed_tenant %}is-done{% elif my_visits %}is-current{% endif %}"><span>2</span><div><strong>{{ 'মালিক সময় নির্ধারণ করবেন' if lang=='bn' else 'Owner schedules the visit' }}</strong><small>{{ 'Landlord Dashboard থেকে সময় ঠিক হবে' if lang=='bn' else 'The landlord confirms a visit slot' }}</small></div></li>
+                    <li class="{% if pending_booking or confirmed_tenant %}is-done{% elif scheduled_visit %}is-current{% endif %}"><span>3</span><div><strong>{{ 'বুকিং অনুরোধ পাঠান' if lang=='bn' else 'Send a booking request' }}</strong><small>{{ 'ভিজিট নির্ধারিত হওয়ার পর' if lang=='bn' else 'Once the visit is scheduled' }}</small></div></li>
+                    <li class="{% if confirmed_tenant %}is-done{% elif pending_booking %}is-current{% endif %}"><span>4</span><div><strong>{{ 'মালিক বুকিং নিশ্চিত করবেন' if lang=='bn' else 'Owner confirms booking' }}</strong><small>{{ 'কোনো অনলাইন পেমেন্ট নয়' if lang=='bn' else 'No online payments' }}</small></div></li>
+                  </ol>
+                  {% if my_visits and not (confirmed_tenant or pending_booking or scheduled_visit) %}
+                  <div class="sr-booking-state"><i class="fa-regular fa-clock"></i> {{ 'আপনার ভিজিটের অনুরোধ পাঠানো হয়েছে। মালিকের সময় নির্ধারণের অপেক্ষায় থাকুন।' if lang=='bn' else 'Your visit request is submitted. Please wait for the landlord to schedule it.' }}</div>
+                  {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Rent Price Banner -->
+                <div>
+                    <div class="text-xs text-slate-500 font-medium">{{ 'মাসিক ভাড়া' if lang=='bn' else 'Monthly rent' }}</div>
+                    <div class="flex items-baseline space-x-2">
+                        <span class="text-3xl font-extrabold text-emerald-600">
+                            ৳{{ "{:,}".format(listing.rent_amount) }}
+                        </span>
+                        <span class="text-xs text-slate-500">{{ 'প্রতি মাসে' if lang=='bn' else 'per month' }}</span>
+                    </div>
+                    <div class="text-xs text-slate-500 mt-1">
+                        {{ 'অগ্রিম জামানত:' if lang=='bn' else 'Advance deposit:' }} <b class="text-slate-800">৳{{ "{:,}".format(listing.deposit_amount) }}</b>
+                    </div>
+                </div>
+
+                <!-- Fair-Rent AI Valuation Tag -->
+                {% if fair_analysis %}
+                <div class="p-3 bg-teal-50 rounded-xl border border-teal-200 text-xs">
+                    <div class="flex items-center space-x-1.5 text-teal-800 font-bold mb-1">
+                        <i class="fa-solid fa-wand-magic-sparkles text-teal-600"></i>
+                        <span>Rule-Based Rent Estimate</span>
+                    </div>
+                    <div class="text-teal-900 font-bold">{{ fair_analysis.status }}</div>
+                    <p class="text-[11px] text-teal-700 mt-0.5">{{ fair_analysis.message }}</p>
+                </div>
+                {% endif %}
+
+                <!-- Action 1: Schedule Physical Visit (Feature 6) -->
+                <div>
+                    {% if not current_user %}<a class="sr-feature-primary w-full" href="/login?next={{ request.url.path }}"><i class="fa-solid fa-right-to-bracket"></i> {{ 'ভিজিটের অনুরোধ দিতে লগইন করুন' if lang=='bn' else 'Sign in to request a visit' }}</a>
+                    {% elif (current_user.role if current_user else 'guest')=='student' and not (confirmed_tenant or pending_booking or scheduled_visit or (my_visits and my_visits[0].status=='visit_requested')) %}
+                    <button onclick="openVisitModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition flex items-center justify-center space-x-2 text-sm">
+                        <i class="fa-solid fa-calendar-check"></i>
+                        <span>{{ 'ভিজিটের অনুরোধ পাঠান' if lang=='bn' else 'Request a visit' }}</span>
+                    </button>
+                    {% elif (current_user.role if current_user else 'guest')=='student' %}
+                    <a class="sr-feature-secondary w-full" href="/my-bookings"><i class="fa-regular fa-calendar-check"></i> {{ 'আমার ভিজিট ও বুকিং দেখুন' if lang=='bn' else 'View my visits and bookings' }}</a>
+                    {% else %}
+                    <p class="sr-feature-note">{{ 'ভিজিটের অনুরোধ শুধুমাত্র শিক্ষার্থী অ্যাকাউন্ট থেকে পাঠানো যায়।' if lang=='bn' else 'Only student accounts can request a property visit.' }}</p>
+                    {% endif %}
+                    <p class="text-[10px] text-center text-slate-500 mt-1.5">
+                        {{ 'বাসা দেখার সময় চাইতে পারবেন—বিনামূল্যে' if lang=='bn' else 'Request a free visit to inspect the property in person' }}
+                    </p>
+                </div>
+
+                <!-- Action 2: Safe Simulated Booking Escrow -->
+                <div>
+                  {% if confirmed_tenant %}
+                    <div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-sm text-emerald-800 font-bold"><i class="fa-solid fa-circle-check"></i> {{ 'মালিক বুকিং নিশ্চিত করেছেন' if lang=='bn' else 'Booking confirmed by landlord' }}</div>
+                  {% elif pending_booking %}
+                    <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl text-sm text-amber-900 font-bold">{{ 'বুকিং অনুরোধ পাঠানো হয়েছে—মালিকের সিদ্ধান্তের অপেক্ষায়' if lang=='bn' else 'Booking request pending landlord confirmation' }}</div>
+                  {% elif scheduled_visit %}
+                    <button onclick="openBookingModal()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center space-x-2 text-xs"><i class="fa-solid fa-calendar-check"></i> {{ 'বুকিংয়ের অনুরোধ পাঠান (কোনো পেমেন্ট নয়)' if lang=='bn' else 'Request booking after scheduled visit (no payment)' }}</button>
+                  {% else %}
+                    <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs text-slate-600">{{ 'আগে বাসা দেখার অনুরোধ করুন। মালিক সময় নিশ্চিত করলে বুকিংয়ের অনুরোধ দিতে পারবেন।' if lang=='bn' else 'Request a visit first. Booking becomes available after the landlord schedules it.' }}</div>
+                  {% endif %}
+                  {% if not current_user or current_user.role in ['student','landlord'] %}
+                  <div class="sr-inline-actions mt-3">{% if current_user %}<button type="button" onclick="addDetailCompare(this)" class="sr-mini-action"><i class="fa-solid fa-scale-balanced"></i> {{ 'তুলনায় যোগ করুন' if lang=='bn' else 'Compare home' }}</button>{% else %}<a href="/login?next=/compare" class="sr-mini-action"><i class="fa-solid fa-scale-balanced"></i>{{ 'তুলনার জন্য লগইন' if lang=='bn' else 'Sign in to compare' }}</a>{% endif %}<a class="sr-mini-action" href="{{ '/living-cost?listing_id=' ~ listing.id if current_user else '/login?next=/living-cost' }}"><i class="fa-solid fa-wallet"></i> {{ 'মোট খরচ' if lang=='bn' else 'Living cost' }}</a></div>
+                  {% endif %}
+                </div>
+
+                <!-- Action 3: Generate Rental Agreement -->
+                {% if not current_user or current_user.role in ['student','landlord'] %}
+                <div>
+                    <a href="{{ '/agreement?listing_id=' ~ listing.id if current_user else '/login?next=/agreement' }}" class="w-full border border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 font-bold py-2 px-4 rounded-xl transition flex items-center justify-center space-x-2 text-xs">
+                        <i class="fa-solid fa-file-contract text-emerald-600"></i>
+                        <span>{{ 'খসড়া ভাড়া চুক্তিপত্র' if lang=='bn' else 'Draft rental agreement' }}</span>
+                    </a>
+                </div>
+
+                {% endif %}
+                <!-- Landlord Profile Card -->
+                <div class="pt-4 border-t border-slate-100">
+                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Property Owner</div>
+                    <div class="flex items-center space-x-3">
+                        <img src="{{ owner.avatar or 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100' }}" alt="{{ owner.name }}" class="w-11 h-11 rounded-full object-cover border-2 border-emerald-500">
+                        <div>
+                            <div class="flex items-center space-x-1">
+                                <span class="font-bold text-xs text-slate-900">{{ owner.name }}</span>
+                                {% if listing.owner_identity_checked %}<i class="fa-solid fa-circle-check text-emerald-500 text-[11px]" title="{{ 'পরিচয় যাচাই করা হয়েছে' if lang=='bn' else 'Owner identity reviewed' }}"></i>{% endif %}
+                            </div>
+                            <span class="text-[10px] text-slate-500 block">{{ 'বাড়ির মালিক' if lang=='bn' else 'Property owner' }} · {{ tr_enum(listing.area) }}</span>
+                            <span class="text-[10px] text-emerald-600 font-semibold">{{ 'উত্তর দেওয়ার সময়ের তথ্য নেই' if lang=='bn' else 'Response time unavailable' }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Accessible anti-scam notice; icon cannot collide with heading -->
+                <aside class="sr-security-notice" role="note" aria-label="{{ 'নিরাপত্তা পরামর্শ' if lang=='bn' else 'Safety notice' }}">
+                    <span class="sr-security-notice-icon" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span>
+                    <div class="sr-security-notice-content">
+                        <strong>{{ 'SmartRent নিরাপত্তা পরামর্শ' if lang=='bn' else 'SmartRent Security Notice' }}</strong>
+                        <p>{{ 'বুকিং নিশ্চিত করার আগে সরাসরি বাসা দেখে নিন। কোনো অর্থ দেওয়ার আগে মালিকানা ও পরিচয়ের কাগজপত্র নিজ দায়িত্বে যাচাই করুন। SmartRent-এ বাস্তব অর্থ লেনদেন হয় না।' if lang=='bn' else 'Visit the property before confirming a booking. Independently verify the owner and property documents before any payment. SmartRent does not process real payments.' }}</p>
+                    </div>
+                </aside>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 1: Schedule Physical Visit (Feature 6) -->
+<div id="visitModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-bold text-slate-900 flex items-center">
+                <i class="fa-solid fa-calendar-check text-emerald-600 mr-2"></i> Schedule Physical Visit
+            </h3>
+            <button onclick="closeVisitModal()" class="text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        <p class="text-xs text-slate-600 mb-4">
+            বাড়িওয়ালার সাথে সরাসরি গিয়ে রুম, বাথরুম, কিচেন এবং পরিবেশ দেখে আসার অনুরোধ জানান।
+        </p>
+        <form action="/api/request-visit" method="POST" onsubmit="handleVisitSubmit(event)">
+            <input type="hidden" name="listing_id" value="{{ listing.id }}">
+            <input type="hidden" name="student_id" value="{{ (current_user.id if current_user else '') }}">
+            <input type="hidden" name="owner_id" value="{{ listing.owner_id }}">
+            
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Preferred Visit Date</label>
+                    <input type="date" name="visit_date" required class="w-full border border-slate-300 rounded-lg p-2.5 font-medium">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Preferred Time Slot</label>
+                    <select name="time_slot" class="w-full border border-slate-300 rounded-lg p-2.5 font-medium">
+                        <option value="Morning (9:00 AM - 12:00 PM)">Morning (9:00 AM - 12:00 PM)</option>
+                        <option value="Afternoon (2:00 PM - 5:00 PM)">Afternoon (2:00 PM - 5:00 PM)</option>
+                        <option value="Evening (5:00 PM - 8:00 PM)">Evening (5:00 PM - 8:00 PM)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Note to Landlord (Optional)</label>
+                    <textarea name="notes" rows="2" placeholder="e.g. BUET student, would like to see the window view and meet current roommates." class="w-full border border-slate-300 rounded-lg p-2 font-medium"></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 mt-5">
+                <button type="button" onclick="closeVisitModal()" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                <button type="submit" class="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow">
+                    Send Visit Request
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 2: Booking request after scheduled visit -->
+<div id="bookingModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+  <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+    <h3 class="text-lg font-bold text-slate-900 mb-3">{{ 'বুকিং অনুরোধ নিশ্চিত করুন' if lang=='bn' else 'Request landlord booking confirmation' }}</h3>
+    <p class="text-sm text-slate-600 leading-relaxed mb-5">{{ 'আপনার ভিজিটের সময় নির্ধারিত হয়েছে। বুকিং অনুরোধ পাঠালে মালিক সেটি অনুমোদন বা বাতিল করবেন। কোনো টাকা লেনদেন হবে না।' if lang=='bn' else 'Your visit is scheduled. The owner must approve this booking request. No money is charged or held by this platform.' }}</p>
+    <div class="sr-inline-actions"><button type="button" onclick="closeBookingModal()" class="sr-feature-secondary">{{ 'বাতিল' if lang=='bn' else 'Cancel' }}</button><button type="button" onclick="handleSimulatedBooking()" class="sr-feature-primary">{{ 'অনুরোধ পাঠান' if lang=='bn' else 'Send request' }}</button></div>
+  </div>
+</div>
+
+<!-- Modal 3: Report Fake Listing / Advance Scam (Feature 8) -->
+<div id="reportModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-base font-bold text-rose-600 flex items-center">
+                <i class="fa-solid fa-triangle-exclamation mr-2"></i> Report Fake Listing or Scam
+            </h3>
+            <button onclick="closeReportModal()" class="text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        <p class="text-xs text-slate-600 mb-3">
+            {{ 'রিপোর্ট জমা হলে বিজ্ঞাপনটি অ্যাডমিন পর্যালোচনা শেষ না হওয়া পর্যন্ত পাবলিক সার্চে থাকবে না।' if lang=='bn' else 'After a report, the property is hidden from public search until admin review is complete.' }}
+        </p>
+        <form action="/api/report-listing" method="POST" onsubmit="handleReportSubmit(event)">
+            <input type="hidden" name="listing_id" value="{{ listing.id }}">
+            <input type="hidden" name="reporter_id" value="{{ (current_user.id if current_user else '') }}">
+            
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Reason for Report</label>
+                    <select name="reason" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                        <option value="Advance Payment Scam">Asked for bKash/Nagad advance payment before visit</option>
+                        <option value="Fake Photos / Misleading">Photos and description do not match reality</option>
+                        <option value="Unreachable / Shady Broker">Unreachable owner / unauthorized middleman broker</option>
+                        <option value="Overpriced Extortion">Extortionate hidden fees and unfair demands</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Detailed Explanation</label>
+                    <textarea name="details" rows="3" required placeholder="Describe what the poster said or did..." class="w-full border border-slate-300 rounded-lg p-2 font-medium"></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 mt-5">
+                <button type="button" onclick="closeReportModal()" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                <button type="submit" class="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow">
+                    Submit Scam Report
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 4: Submit Tenant Review (Feature 7) -->
+<div id="reviewModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-base font-bold text-slate-900 flex items-center">
+                <i class="fa-solid fa-star text-amber-500 mr-2"></i> {{ 'ভেরিফায়েড ভাড়াটিয়ার রিভিউ' if lang=='bn' else 'Verified tenant review' }}
+            </h3>
+            <button onclick="closeReviewModal()" class="text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        <form action="/api/submit-review" method="POST" onsubmit="handleReviewSubmit(event)">
+            <input type="hidden" name="listing_id" value="{{ listing.id }}">
+            <input type="hidden" name="student_id" value="{{ (current_user.id if current_user else '') }}">
+            
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Overall Rating</label>
+                    <select name="rating" class="w-full border border-slate-300 rounded-lg p-2 font-bold text-amber-600">
+                        <option value="5">⭐⭐⭐⭐⭐ (5/5) Excellent</option>
+                        <option value="4">⭐⭐⭐⭐ (4/5) Very Good</option>
+                        <option value="3">⭐⭐⭐ (3/5) Average</option>
+                        <option value="2">⭐⭐ (2/5) Poor</option>
+                        <option value="1">⭐ (1/5) Terrible</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block font-medium text-slate-600 mb-0.5">Cleanliness</label>
+                        <select name="cleanliness_rating" class="w-full border border-slate-300 rounded-lg p-1.5">
+                            <option value="5">5/5</option>
+                            <option value="4">4/5</option>
+                            <option value="3">3/5</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-600 mb-0.5">Landlord</label>
+                        <select name="owner_rating" class="w-full border border-slate-300 rounded-lg p-1.5">
+                            <option value="5">5/5</option>
+                            <option value="4">4/5</option>
+                            <option value="3">3/5</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-600 mb-0.5">Facilities</label>
+                        <select name="facilities_rating" class="w-full border border-slate-300 rounded-lg p-1.5">
+                            <option value="5">5/5</option>
+                            <option value="4">4/5</option>
+                            <option value="3">3/5</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Your Honest Experience as a Tenant</label>
+                    <textarea name="comment" rows="3" required placeholder="Write about internet stability, water pressure, khala food, etc." class="w-full border border-slate-300 rounded-lg p-2"></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 mt-5">
+                <button type="button" onclick="closeReviewModal()" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                <button type="submit" class="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow">
+                    Submit Review
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function addDetailCompare(button){
+ button.disabled=true;
+ try{const form=new FormData();form.append('listing_id','{{ listing.id }}');
+  const r=await checkedApiFetch('/api/compare/toggle',{method:'POST',body:form});
+  const d=await r.json();showNotification('Comparison updated',d.action==='added'?'Added to comparison':'Removed from comparison');
+ }catch(err){showNotification('Error',err.message,'error');}finally{button.disabled=false;}
+}
+</script>
+<script>
+    // Init Location Map
+    document.addEventListener('DOMContentLoaded', () => {
+        const lat = {{ listing.lat }};
+        const lng = {{ listing.lng }};
+        if (typeof L === 'undefined') {
+            document.getElementById('detailMap').innerHTML = '<p class="sr-help">Map unavailable. Please check the address above.</p>';
+            return;
+        }
+        const detailMap = L.map('detailMap').setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(detailMap);
+
+        const customIcon = L.divIcon({
+            className: 'custom-pin',
+            html: `<div style="background:#059669;color:white;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,0.3);border:2px solid white;"><i class="fa-solid fa-house" style="font-size:14px;"></i></div>`,
+            iconSize: [34, 34],
+            iconAnchor: [17, 17]
+        });
+
+        L.marker([lat, lng], { icon: customIcon })
+         .addTo(detailMap)
+         .bindPopup("<b>{{ tr_listing(listing, "title") }}</b><br>{{ listing.address }}")
+         .openPopup();
+    });
+
+    // Modals Handlers
+    function openVisitModal() { document.getElementById('visitModal').classList.remove('hidden'); }
+    function closeVisitModal() { document.getElementById('visitModal').classList.add('hidden'); }
+
+    function openBookingModal() { document.getElementById('bookingModal').classList.remove('hidden'); }
+    function closeBookingModal() { document.getElementById('bookingModal').classList.add('hidden'); }
+
+    function openReportModal() { document.getElementById('reportModal').classList.remove('hidden'); }
+    function closeReportModal() { document.getElementById('reportModal').classList.add('hidden'); }
+
+    function openReviewModal() { document.getElementById('reviewModal').classList.remove('hidden'); }
+    function closeReviewModal() { document.getElementById('reviewModal').classList.add('hidden'); }
+
+    async function handleVisitSubmit(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        try {
+            const resp = await checkedApiFetch('/api/request-visit', { method: 'POST', body: formData });
+            const data = await resp.json();
+            closeVisitModal();
+            showNotification('Visit Request Sent!', 'The landlord has been notified. They will confirm the appointment slot shortly.');
+        } catch(err) {
+                showNotification(
+                    "Request failed",
+                    err.message || "Please retry.",
+                    "error"
+                );
+            }
+    }
+
+    async function handleSimulatedBooking() {
+        const formData = new FormData();
+        formData.append('listing_id', '{{ listing.id }}');
+        formData.append('student_id', '{{ (current_user.id if current_user else '') }}');
+        formData.append('owner_id', '{{ listing.owner_id }}');
+        formData.append('deposit_amount', '0');
+        {% if scheduled_visit %}formData.append('visit_id', '{{ scheduled_visit.id }}');{% endif %}
+        
+        try {
+            const resp = await checkedApiFetch('/api/simulated-booking', { method: 'POST', body: formData });
+            const data = await resp.json();
+            closeBookingModal();
+            showNotification('Booking requested', 'The landlord must confirm it. No payment was processed.');setTimeout(()=>location.reload(),1200);
+        } catch(err) {
+                showNotification(
+                    "Request failed",
+                    err.message || "Please retry.",
+                    "error"
+                );
+            }
+    }
+
+    async function handleReportSubmit(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        try {
+            const resp = await checkedApiFetch('/api/report-listing', { method: 'POST', body: formData });
+            const data = await resp.json();
+            closeReportModal();
+            Swal.fire({
+                title: 'Report Submitted',
+                text: 'Thank you for protecting fellow students. An admin will review this report.',
+                icon: 'warning',
+                confirmButtonColor: '#059669'
+            }).then(() => {
+                window.location.href = '/listings?role={{ (current_user.role if current_user else 'guest') }}';
+            });
+        } catch(err) {
+                showNotification(
+                    "Request failed",
+                    err.message || "Please retry.",
+                    "error"
+                );
+            }
+    }
+
+    async function handleReviewSubmit(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        try {
+            const resp = await checkedApiFetch('/api/submit-review', { method: 'POST', body: formData });
+            const data = await resp.json();
+            closeReviewModal();
+            showNotification('Review Published!', 'Thank you! Your feedback helps other university students find genuine housing.');
+            setTimeout(() => { window.location.reload(); }, 1200);
+        } catch(err) {
+                showNotification(
+                    "Request failed",
+                    err.message || "Please retry.",
+                    "error"
+                );
+            }
+    }
+</script>
+{% endblock %}

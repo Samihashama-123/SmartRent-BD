@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+
+{% block title %}Bachelor Mess Manager & Shared Expense Splitter - SmartRent BD{% endblock %}
+
+{% block content %}
+<div class="sr-demo-hint"><i class="fa-solid fa-circle-info"></i>
+{{ 'এটি একটি শেয়ারড ডেমো মেস হিসাব। এখানে করা এন্ট্রি ডেমো ডেটা পরিবর্তন করে; বাস্তব পেমেন্ট নয়।' if lang=='bn' else 'Shared demo mess: entries update sample data only; no real payments are processed.' }}
+</div>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Top Headline & Mess Banner -->
+    <div class="bg-gradient-to-r from-slate-900 via-emerald-950 to-teal-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div>
+            <div class="inline-flex items-center space-x-2 bg-emerald-500/20 border border-emerald-400/30 px-3 py-1 rounded-full text-emerald-300 text-xs font-bold uppercase tracking-wider mb-2">
+                <i class="fa-solid fa-utensils"></i>
+                <span class="bangla">ব্যাচেলর মেস ও মিল ম্যানেজার</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                {{ mess.name }}
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-300 mt-1 flex items-center">
+                <i class="fa-solid fa-location-dot text-rose-400 mr-1.5"></i> {{ mess.address }}
+                <span class="mx-2 text-slate-500">•</span>
+                <span class="text-emerald-400 font-semibold">{{ members|length }} Active Roommates</span>
+            </p>
+        </div>
+
+        <!-- Action CTAs -->
+        <div class="flex flex-wrap gap-2">
+            <button onclick="openBazaarModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-md transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-cart-shopping"></i>
+                <span>+ বাজার খরচ লিখুন</span>
+            </button>
+            <button onclick="openMealModal()" class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-md transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-bowl-food"></i>
+                <span>+ দৈনিক মিল এন্ট্রি</span>
+            </button>
+            <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3.5 py-2.5 rounded-xl border border-slate-700 transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-print"></i>
+                <span>প্রিন্ট শিট</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 4 High-Impact KPI Stat Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+        
+        <!-- Total Bazaar Expense -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-slate-500 uppercase">মোট বাজার খরচ</span>
+                <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm font-bold">
+                    <i class="fa-solid fa-basket-shopping"></i>
+                </div>
+            </div>
+            <div class="text-2xl font-black text-slate-900">৳{{ "{:,}".format(total_bazaar) }}</div>
+            <div class="text-[11px] text-slate-500 mt-1">চাল, ডাল, মাছ, মাংস ও মসলা খরচ</div>
+        </div>
+
+        <!-- Total Meals Consumed -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-slate-500 uppercase">মোট মিল সংখ্যা</span>
+                <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center text-sm font-bold">
+                    <i class="fa-solid fa-plate-wheat"></i>
+                </div>
+            </div>
+            <div class="text-2xl font-black text-slate-900">{{ total_meals }} <span class="text-sm font-normal text-slate-500">টি মিল</span></div>
+            <div class="text-[11px] text-slate-500 mt-1">মেস সদস্যদের মোট মিল</div>
+        </div>
+
+        <!-- Current Meal Rate (Automated Formula) -->
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-500 shadow-sm relative overflow-hidden">
+            <div class="absolute top-0 right-0 bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded-bl">
+                AUTO FORMULA
+            </div>
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-emerald-700 uppercase">বর্তমান মিল রেট (Meal Rate)</span>
+                <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold">
+                    <i class="fa-solid fa-calculator"></i>
+                </div>
+            </div>
+            <div class="text-2xl font-black text-emerald-600">৳{{ "%.2f"|format(meal_rate) }} <span class="text-xs font-normal text-slate-500">/ মিল</span></div>
+            <div class="text-[11px] text-emerald-700 mt-1 font-medium">বাজার খরচ ÷ মোট মিল</div>
+        </div>
+
+        <!-- Shared Utilities Total -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-slate-500 uppercase">ইউটিলিটি ও খালা বিল</span>
+                <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-sm font-bold">
+                    <i class="fa-solid fa-bolt"></i>
+                </div>
+            </div>
+            <div class="text-2xl font-black text-slate-900">৳{{ "{:,}".format(total_utilities) }}</div>
+            <div class="text-[11px] text-slate-500 mt-1">মাথাপিছু ভাগ: ৳{{ "{:,}".format((total_utilities / (members|length))|round|int) }}</div>
+        </div>
+    </div>
+
+    <!-- Final Settlement Balance Matrix (হিসাব নিকাশ ও দেনা-পাওনা) - KILLER FEATURE -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-8">
+        <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div>
+                <h3 class="font-extrabold text-base text-slate-900 flex items-center">
+                    <i class="fa-solid fa-scale-balanced text-emerald-600 mr-2"></i>
+                    <span class="bangla">মেসের হিসাব ও ব্যালেন্স শিট</span>
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">কে কত টাকা পাবে অথবা কাকে মেস ম্যানেজারের কাছে কত টাকা জমা দিতে হবে</p>
+            </div>
+            <span class="text-xs font-bold bg-slate-100 text-slate-700 px-3 py-1 rounded-full">
+                Seat Rent: ৳6,000 / seat
+            </span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider border-b border-slate-200 text-[11px]">
+                    <tr>
+                        <th class="py-3 px-4">সদস্যের নাম</th>
+                        <th class="py-3 px-3 text-center">খাওয়া মিল</th>
+                        <th class="py-3 px-3 text-right">মিল খরচ (৳)</th>
+                        <th class="py-3 px-3 text-right">ইউটিলিটি ভাগ (৳)</th>
+                        <th class="py-3 px-3 text-right">সিট ভাড়া (৳)</th>
+                        <th class="py-3 px-3 text-right">মোট প্রদেয় (৳)</th>
+                        <th class="py-3 px-3 text-right text-indigo-700">জমা / বাজার ব্যয় (৳)</th>
+                        <th class="py-3 px-4 text-center">অবশিষ্ট স্ট্যাটাস (Net)</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium text-slate-800">
+                    {% for s in settlement %}
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="py-3.5 px-4 font-bold text-slate-900 flex items-center space-x-2">
+                            <div class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs font-bold">
+                                {{ s.name.split()[0][0] }}
+                            </div>
+                            <span>{{ s.name }}</span>
+                        </td>
+                        <td class="py-3.5 px-3 text-center font-bold text-teal-700">{{ s.meals_count }}</td>
+                        <td class="py-3.5 px-3 text-right font-mono">৳{{ "{:,}".format(s.meal_cost) }}</td>
+                        <td class="py-3.5 px-3 text-right font-mono">৳{{ "{:,}".format(s.utility_share) }}</td>
+                        <td class="py-3.5 px-3 text-right font-mono">৳{{ "{:,}".format(s.seat_rent) }}</td>
+                        <td class="py-3.5 px-3 text-right font-mono font-bold text-slate-900">৳{{ "{:,}".format(s.total_payable) }}</td>
+                        <td class="py-3.5 px-3 text-right font-mono font-bold text-indigo-700">৳{{ "{:,}".format(s.total_spent) }}</td>
+                        <td class="py-3.5 px-4 text-center">
+                            {% if s.net_balance >= 0 %}
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                <i class="fa-solid fa-arrow-down-left mr-1"></i> পাবে: ৳{{ "{:,}".format(s.net_balance) }}
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-extrabold bg-rose-100 text-rose-800 border border-rose-200">
+                                <i class="fa-solid fa-arrow-up-right mr-1"></i> দিবে: ৳{{ "{:,}".format(s.net_balance|abs) }}
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 2 Column Section: Daily Meal Sheet & Bazaar Ledger -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        <!-- Left: Daily Meal Sheet (মিল খাতা) -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                    <h3 class="font-extrabold text-sm text-slate-900 flex items-center">
+                        <i class="fa-solid fa-clipboard-list text-teal-600 mr-2"></i>
+                        <span class="bangla">দৈনিক মিল খাতা (Lunch & Dinner Log)</span>
+                    </h3>
+                    <button onclick="openMealModal()" class="text-xs text-emerald-600 hover:text-emerald-700 font-bold flex items-center space-x-1">
+                        <i class="fa-solid fa-plus text-[10px]"></i>
+                        <span>মিল যোগ করুন</span>
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left">
+                        <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b">
+                            <tr>
+                                <th class="py-2.5 px-3">তারিখ</th>
+                                <th class="py-2.5 px-3">সদস্যের নাম</th>
+                                <th class="py-2.5 px-3 text-center">দুপুর (L)</th>
+                                <th class="py-2.5 px-3 text-center">রাত (D)</th>
+                                <th class="py-2.5 px-3 text-right">মোট মিল</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for m in recent_meals %}
+                            <tr class="hover:bg-slate-50/60">
+                                <td class="py-2.5 px-3 font-mono text-slate-500">{{ m.meal_date }}</td>
+                                <td class="py-2.5 px-3 font-bold text-slate-800">{{ m.member_name }}</td>
+                                <td class="py-2.5 px-3 text-center font-bold text-amber-600">{{ m.lunch_count }}</td>
+                                <td class="py-2.5 px-3 text-center font-bold text-indigo-600">{{ m.dinner_count }}</td>
+                                <td class="py-2.5 px-3 text-right font-extrabold text-emerald-700">{{ m.lunch_count + m.dinner_count }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 text-center">
+                স্বয়ংক্রিয়ভাবে প্রতিদিনের মিল কাউন্ট যোগ হয়ে ব্যালেন্সে আপডেট হয়
+            </div>
+        </div>
+
+        <!-- Right: Bazaar Expenses Ledger (বাজারের খরচ) -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                    <h3 class="font-extrabold text-sm text-slate-900 flex items-center">
+                        <i class="fa-solid fa-basket-shopping text-emerald-600 mr-2"></i>
+                        <span class="bangla">বাজারের খরচের তালিকা (Bazaar Ledger)</span>
+                    </h3>
+                    <button onclick="openBazaarModal()" class="text-xs text-emerald-600 hover:text-emerald-700 font-bold flex items-center space-x-1">
+                        <i class="fa-solid fa-plus text-[10px]"></i>
+                        <span>বাজার যোগ করুন</span>
+                    </button>
+                </div>
+
+                <div class="space-y-3">
+                    {% for b in bazaars %}
+                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-xs text-slate-900">{{ b.buyer_name }}</span>
+                                <span class="text-[10px] text-slate-400 font-mono">{{ b.bazaar_date }}</span>
+                            </div>
+                            <p class="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{{ b.items_description }}</p>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                            <span class="text-xs font-black text-emerald-600 font-mono">৳{{ "{:,}".format(b.amount) }}</span>
+                            <span class="block text-[9px] text-slate-400">ক্রেডিট জমা</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Utility Summary Breakdown -->
+            <div class="mt-4 pt-3 border-t border-slate-100">
+                <div class="text-xs font-bold text-slate-700 mb-2">চলতি মাসের ইউটিলিটি বিলসমূহ:</div>
+                <div class="grid grid-cols-2 gap-2 text-[11px]">
+                    {% for u in utilities %}
+                    <div class="p-2 rounded-lg bg-amber-50/60 border border-amber-100 flex justify-between">
+                        <span class="text-slate-600 truncate mr-1">{{ u.title }}</span>
+                        <span class="font-bold text-amber-800">৳{{ "{:,}".format(u.amount) }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 1: Add Bazaar Expense -->
+<div id="bazaarModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-bold text-slate-900 flex items-center">
+                <i class="fa-solid fa-basket-shopping text-emerald-600 mr-2"></i> বাজার খরচ রেকর্ড করুন
+            </h3>
+            <button onclick="closeBazaarModal()" class="text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        <form action="/api/add-bazaar" method="POST" onsubmit="handleBazaarSubmit(event)">
+            <input type="hidden" name="mess_id" value="{{ mess.id }}">
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">কে বাজার করেছেন?</label>
+                    <select name="buyer_name" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                        {% for m in members %}
+                        <option value="{{ m.name }}">{{ m.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">মোট খরচ (টাকা)</label>
+                    <input type="number" name="amount" required placeholder="e.g. 1850" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">বাজারের বিবরণ</label>
+                    <textarea name="items_description" rows="2" placeholder="e.g. মুরগি ৩ কেজি, রুই মাছ ২ কেজি, চাল, তেল" class="w-full border border-slate-300 rounded-lg p-2 font-medium"></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2 mt-5">
+                <button type="button" onclick="closeBazaarModal()" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg">বাতিল</button>
+                <button type="submit" class="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow">
+                    সংরক্ষণ করুন
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 2: Add Daily Meal Record -->
+<div id="mealModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-bold text-slate-900 flex items-center">
+                <i class="fa-solid fa-bowl-food text-teal-600 mr-2"></i> দৈনিক মিল এন্ট্রি
+            </h3>
+            <button onclick="closeMealModal()" class="text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        <form action="/api/add-meal" method="POST" onsubmit="handleMealSubmit(event)">
+            <input type="hidden" name="mess_id" value="{{ mess.id }}">
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">সদস্যের নাম</label>
+                    <select name="member_id" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                        {% for m in members %}
+                        <option value="{{ m.id }}">{{ m.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">তারিখ</label>
+                    <input type="date" name="meal_date" value="{{ today_date }}" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">দুপুরের মিল (Lunch)</label>
+                        <select name="lunch_count" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                            <option value="1">1 মিল</option>
+                            <option value="0">0 (খায়নি)</option>
+                            <option value="2">2 (গেস্ট সহ)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">রাতের মিল (Dinner)</label>
+                        <select name="dinner_count" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                            <option value="1">1 মিল</option>
+                            <option value="0">0 (খায়নি)</option>
+                            <option value="2">2 (গেস্ট সহ)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2 mt-5">
+                <button type="button" onclick="closeMealModal()" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg">বাতিল</button>
+                <button type="submit" class="px-4 py-2 text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white rounded-lg shadow">
+                    মিল যোগ করুন
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openBazaarModal() { document.getElementById('bazaarModal').classList.remove('hidden'); }
+    function closeBazaarModal() { document.getElementById('bazaarModal').classList.add('hidden'); }
+
+    function openMealModal() { document.getElementById('mealModal').classList.remove('hidden'); }
+    function closeMealModal() { document.getElementById('mealModal').classList.add('hidden'); }
+
+    async function handleBazaarSubmit(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        try {
+            await checkedApiFetch('/api/add-bazaar', { method: 'POST', body: formData });
+            closeBazaarModal();
+            showNotification('বাজার খরচ সংরক্ষিত!', 'মিল রেট ও ব্যালেন্স শিট স্বয়ংক্রিয়ভাবে আপডেট করা হয়েছে।');
+            setTimeout(() => { window.location.reload(); }, 1200);
+        } catch(err) {
+                showNotification(
+                    "Request failed",
+                    err.message || "Please retry.",
+                    "error"
+                );
+            }
+    }
+
+    async function handleMealSubmit(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        try {
+            await checkedApiFetch('/api/add-meal', { method: 'POST', body: formData });
+            closeMealModal();
+            showNotification('মিল যোগ করা হয়েছে!', 'সদস্যের মিল হিসেব আপডেট সম্পন্ন।');
+            setTimeout(() => { window.location.reload(); }, 1200);
+        } catch(err) {
+                showNotification(
+                    "Request failed",
+                    err.message || "Please retry.",
+                    "error"
+                );
+            }
+    }
+</script>
+{% endblock %}

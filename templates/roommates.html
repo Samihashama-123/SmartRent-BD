@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+
+{% block title %}Roommate Compatibility - SmartRent BD{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    {% if not_student %}
+    <div class="sr-empty-state"><i class="fa-solid fa-user-group"></i>
+      <h2>{{ 'শিক্ষার্থীদের জন্য রুমমেট সেবা' if lang=='bn' else 'Roommate matching is for students' }}</h2>
+      <p>{{ 'শিক্ষার্থী অ্যাকাউন্ট দিয়ে লগইন করে এই সেবা ব্যবহার করুন।' if lang=='bn' else 'Sign in using a student account to use roommate matching.' }}</p>
+      <a href="/profile" class="sr-btn">{{ t('profile') }}</a>
+    </div>
+    {% else %}
+    <!-- Top Headline & My Profile Summary Card -->
+    <div class="bg-gradient-to-r from-emerald-800 to-teal-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl mb-8">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            <div class="max-w-2xl">
+                <div class="inline-flex items-center space-x-2 bg-emerald-500/20 border border-emerald-400/30 px-3 py-1 rounded-full text-emerald-300 text-xs font-bold uppercase tracking-wider mb-3">
+                    <i class="fa-solid fa-sparkles"></i>
+                    <span>Rule-Based Roommate Matching</span>
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                    {{ 'রুমমেট খুঁজুন' if lang == 'bn' else 'Find your next roommate' }}
+                </h1>
+                <p class="mt-2 text-xs sm:text-sm text-emerald-100 font-light leading-relaxed">
+                    {{ 'পড়াশোনা, ঘুম ও অভ্যাসের ভিত্তিতে সম্ভাব্য রুমমেট দেখুন। দুজনের সম্মতি হলেই ফোন নম্বর দেখা যাবে।' if lang == 'bn' else 'Compare study, sleep and lifestyle preferences. Contact details become available only when a request is accepted.' }}
+                </p>
+            </div>
+
+            <!-- Active User Matching Profile Capsule -->
+            <div class="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 w-full lg:w-auto text-xs space-y-2.5">
+                <div class="flex items-center justify-between gap-4">
+                    <div class="flex items-center space-x-2.5">
+                        <img src="{{ current_user.avatar }}" alt="{{ current_user.name }}" class="w-10 h-10 rounded-full border-2 border-emerald-400 object-cover">
+                        <div>
+                            <div class="font-bold text-sm text-white">{{ current_user.name }}</div>
+                            <div class="text-[11px] text-emerald-200">{{ current_user.university }}</div>
+                        </div>
+                    </div>
+                    <button onclick="openProfileModal()" class="bg-white hover:bg-emerald-50 text-emerald-900 px-3 py-1.5 rounded-xl font-bold transition shadow-sm text-[11px]">
+                        <i class="fa-solid fa-pen-to-square mr-1"></i> Edit Habits
+                    </button>
+                </div>
+                <div class="flex items-center justify-between text-[11px] pt-2 border-t border-white/10">
+                    <span class="text-emerald-200">Profile Visibility:</span>
+                    <button onclick="toggleVisibility()" id="visBtn" class="font-bold px-2 py-0.5 rounded text-[10px] bg-emerald-500 text-white">
+                        <i class="fa-solid fa-eye mr-1"></i> {{ ('সবার কাছে দৃশ্যমান' if my_profile.get('is_visible', 0) else 'অনুসন্ধান থেকে লুকানো') if lang == 'bn' else ('Visible in search' if my_profile.get('is_visible', 0) else 'Hidden from search') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Candidates Bar -->
+    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-8">
+        <form action="/roommates" method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 text-xs">
+            <input type="hidden" name="role" value="{{ current_user.role }}">
+            
+            <!-- University: choose a suggestion OR type any university name. -->
+            <div class="lg:col-span-2 min-w-0">
+                <label for="roommateUniversityInput" class="block font-bold text-slate-700 mb-1">
+                    {{ 'বিশ্ববিদ্যালয় / কলেজ' if lang == 'bn' else 'University / College' }}
+                </label>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <select id="roommateCampusPreset"
+                            aria-label="{{ 'তালিকা থেকে বিশ্ববিদ্যালয় বাছুন' if lang == 'bn' else 'Choose a university suggestion' }}"
+                            class="w-full sm:w-[44%] min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 font-medium"
+                            onchange="document.getElementById('roommateUniversityInput').value = this.value">
+                        <option value="">{{ 'তালিকা থেকে বাছুন' if lang == 'bn' else 'Choose from list' }}</option>
+                        <option value="BUET">BUET</option>
+                        <option value="Dhaka University">Dhaka University</option>
+                        <option value="BRAC">BRAC University</option>
+                        <option value="Pundra">Pundra University of Science &amp; Technology</option>
+                        <option value="North South">North South University</option>
+                    </select>
+                    <input type="search" id="roommateUniversityInput" name="university"
+                           value="{{ req_params.university or '' }}"
+                           maxlength="100" autocomplete="off"
+                           aria-label="{{ 'বিশ্ববিদ্যালয়ের নাম লিখুন' if lang == 'bn' else 'Type a university name' }}"
+                           placeholder="{{ 'অথবা নাম লিখুন (যেমন: Pundra)' if lang == 'bn' else 'Or type a name (e.g. Pundra)' }}"
+                           class="w-full sm:flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 font-medium focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100">
+                </div>
+                <p class="mt-1.5 text-[11px] leading-relaxed text-slate-500">
+                    {{ 'তালিকা থেকে বেছে নিতে পারেন অথবা যেকোনো বিশ্ববিদ্যালয়ের নাম লিখুন। খালি রাখলে সব ক্যাম্পাস দেখাবে।' if lang == 'bn' else 'Choose a suggestion or type any university. Leave blank to see all campuses.' }}
+                </p>
+            </div>
+
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">{{ "ঘুমের অভ্যাস" if lang == "bn" else "Sleep Rhythm" }}</label>
+                <select name="sleep" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-medium">
+                    <option value="">{{ "যেকোনো ঘুমের অভ্যাস" if lang=="bn" else "Any sleep rhythm" }}</option>
+                    <option value="night_owl" {% if req_params.sleep == 'night_owl' %}selected{% endif %}>{{ "রাত জাগা" if lang=="bn" else "Night owl" }}</option>
+                    <option value="early_bird" {% if req_params.sleep == 'early_bird' %}selected{% endif %}>{{ "সকালে ওঠা" if lang=="bn" else "Early bird" }}</option>
+                    <option value="flexible" {% if req_params.sleep == 'flexible' %}selected{% endif %}>{{ "নমনীয়" if lang=="bn" else "Flexible" }}</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">{{ "ধূমপানের নিয়ম" if lang == "bn" else "Smoking Policy" }}</label>
+                <select name="smoking" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-medium">
+                    <option value="">{{ "যেকোনো" if lang=="bn" else "Any" }}</option>
+                    <option value="non_smoker" {% if req_params.smoking == 'non_smoker' %}selected{% endif %}>{{ "অধূমপায়ী" if lang=="bn" else "Strictly non-smoker" }}</option>
+                    <option value="tolerant" {% if req_params.smoking == 'tolerant' %}selected{% endif %}>{{ "সহনশীল" if lang=="bn" else "Tolerant" }}</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">{{ "পরিচ্ছন্নতা" if lang == "bn" else "Cleanliness" }}</label>
+                <select name="cleanliness" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-medium">
+                    <option value="">{{ "যেকোনো স্তর" if lang=="bn" else "Any level" }}</option>
+                    <option value="high" {% if req_params.cleanliness == 'high' %}selected{% endif %}>{{ "খুব পরিষ্কার" if lang=="bn" else "Very tidy" }}</option>
+                    <option value="moderate" {% if req_params.cleanliness == 'moderate' %}selected{% endif %}>{{ "মাঝারি" if lang=="bn" else "Moderate" }}</option>
+                </select>
+            </div>
+
+            <div class="flex items-end">
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-2.5 rounded-lg transition shadow-sm">
+                    <i class="fa-solid fa-filter mr-1"></i> {{ "রুমমেট খুঁজুন" if lang == "bn" else "Match Roommates" }}
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {% if incoming_requests %}
+    <section class="sr-inbox" aria-label="Connection requests">
+       <div class="sr-inbox-heading"><i class="fa-solid fa-envelope-open-text"></i>
+         <h2>{{ 'রুমমেটের সংযোগ অনুরোধ' if lang == 'bn' else 'Requests awaiting your approval' }}</h2>
+         <span class="sr-count">{{ incoming_requests|length }}</span>
+       </div>
+       {% for request_item in incoming_requests %}
+       <div class="sr-inbox-row">
+           <div><strong>{{ request_item.name }}</strong><small>{{ request_item.university or '' }}</small></div>
+           <div class="sr-inline-actions">
+               <button type="button" class="sr-btn" onclick="respondToRequest({{ request_item.id }}, 'accept')">{{ 'গ্রহণ করুন' if lang=='bn' else 'Accept' }}</button>
+               <button type="button" class="sr-btn-secondary" onclick="respondToRequest({{ request_item.id }}, 'decline')">{{ 'বাতিল করুন' if lang=='bn' else 'Decline' }}</button>
+           </div>
+       </div>
+       {% endfor %}
+    </section>
+    {% endif %}
+    <!-- Candidate Profiles Grid -->
+    <div class="space-y-6">
+        {% for item in candidate_matches %}
+        {% set p = item.profile %}
+        {% set compat = item.compatibility %}
+        {% set is_connected = item.is_connected %}
+        {% set conn_status = item.connection_status %}
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-all">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                <!-- Col 1: Avatar, Basics & Compatibility Score Ring (4 Cols) -->
+                <div class="lg:col-span-4 flex flex-col items-center sm:items-start text-center sm:text-left space-y-3 border-b lg:border-b-0 lg:border-r border-slate-100 pb-6 lg:pb-0 lg:pr-6">
+                    <div class="flex items-center space-x-3.5">
+                        <img src="{{ p.avatar }}" alt="{{ p.name }}" class="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-500 shadow-sm">
+                        <div>
+                            <div class="flex items-center space-x-1.5">
+                                <h3 class="font-extrabold text-base text-slate-900">{{ p.name }}</h3>
+                                {% if p.nid_verified %}
+                                <i class="fa-solid fa-circle-check text-emerald-500 text-xs" title="NID Verified Student"></i>
+                                {% endif %}
+                            </div>
+                            <span class="text-xs text-slate-500 font-medium block">{{ p.university }}</span>
+                            <span class="text-[11px] text-slate-400 block">{{ p.department }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Compatibility Gauge Ring / Badge (Feature 5) -->
+                    <div class="w-full bg-slate-50 rounded-2xl p-3.5 border border-slate-100">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-slate-700">Compatibility Chemistry</span>
+                            <span class="text-xs font-extrabold text-{{ compat.badge_color }}-600 bg-{{ compat.badge_color }}-50 px-2 py-0.5 rounded-full border border-{{ compat.badge_color }}-200">
+                                {{ tr_enum(compat.level) }}
+                            </span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="text-3xl font-black text-{{ compat.badge_color }}-600">
+                                {{ compat.score }}%
+                            </div>
+                            <div class="flex-grow bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                                <div class="bg-emerald-500 h-full rounded-full transition-all duration-700" style="width: {{ compat.score }}%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Target Budget & Area -->
+                    <div class="text-xs text-slate-600 space-y-1 w-full">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Budget Range:</span>
+                            <span class="font-bold text-slate-800">৳{{ "{:,}".format(p.budget_min) }} - ৳{{ "{:,}".format(p.budget_max) }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Target Area:</span>
+                            <span class="font-bold text-slate-800">{{ tr_enum(p.preferred_area) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Col 2: Lifestyle Habits & AI Matching Explanation Breakdown (5 Cols) -->
+                <div class="lg:col-span-5 space-y-4">
+                    
+                    <!-- Habits Matrix Badges (Feature 4) -->
+                    <div>
+                        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Habits & Daily Lifestyle</div>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                            <!-- Sleep -->
+                            <div class="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center space-x-2">
+                                <i class="fa-solid fa-moon text-indigo-500"></i>
+                                <div>
+                                    <span class="text-[10px] text-slate-400 block">Sleep</span>
+                                    <span class="font-bold text-slate-700">{{ tr_enum(p.sleep_schedule) }}</span>
+                                </div>
+                            </div>
+                            <!-- Study -->
+                            <div class="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center space-x-2">
+                                <i class="fa-solid fa-book-open text-blue-500"></i>
+                                <div>
+                                    <span class="text-[10px] text-slate-400 block">Study</span>
+                                    <span class="font-bold text-slate-700">{{ tr_enum(p.study_habit) }}</span>
+                                </div>
+                            </div>
+                            <!-- Cleanliness -->
+                            <div class="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center space-x-2">
+                                <i class="fa-solid fa-broom text-teal-500"></i>
+                                <div>
+                                    <span class="text-[10px] text-slate-400 block">Cleanliness</span>
+                                    <span class="font-bold text-slate-700">{{ tr_enum(p.cleanliness) }}</span>
+                                </div>
+                            </div>
+                            <!-- Smoking -->
+                            <div class="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center space-x-2">
+                                <i class="fa-solid fa-ban-smoking text-rose-500"></i>
+                                <div>
+                                    <span class="text-[10px] text-slate-400 block">Smoking</span>
+                                    <span class="font-bold text-slate-700">{{ tr_enum(p.smoking) }}</span>
+                                </div>
+                            </div>
+                            <!-- Food -->
+                            <div class="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center space-x-2">
+                                <i class="fa-solid fa-utensils text-amber-500"></i>
+                                <div>
+                                    <span class="text-[10px] text-slate-400 block">Food</span>
+                                    <span class="font-bold text-slate-700">{{ tr_enum(p.food_habit) }}</span>
+                                </div>
+                            </div>
+                            <!-- Guests -->
+                            <div class="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center space-x-2">
+                                <i class="fa-solid fa-users text-purple-500"></i>
+                                <div>
+                                    <span class="text-[10px] text-slate-400 block">Guests</span>
+                                    <span class="font-bold text-slate-700">{{ tr_enum(p.guest_policy) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI Explanation Breakdown (Feature 5) -->
+                    <div class="p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-100 text-xs sr-match-reasons">
+                        <div class="font-bold text-emerald-900 mb-1.5 flex items-center">
+                            <i class="fa-solid fa-wand-magic-sparkles text-emerald-600 mr-1.5"></i>
+                            <span>Why You May Match (Rule-Based):</span>
+                        </div>
+                        <ul class="space-y-1 text-emerald-800">
+                            {% for r in compat.reasons %}
+                            <li class="flex items-start space-x-1.5">
+                                <i class="fa-solid fa-check text-emerald-600 text-[10px] mt-0.5"></i>
+                                <span>{{ tr_reason(r) }}</span>
+                            </li>
+                            {% endfor %}
+                            {% for c in compat.cautions %}
+                            <li class="flex items-start space-x-1.5 text-amber-700">
+                                <i class="fa-solid fa-circle-exclamation text-amber-600 text-[10px] mt-0.5"></i>
+                                <span>{{ tr_reason(c) }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+
+                    <!-- Personal Bio -->
+                    {% if p.hobbies %}
+                    <div class="sr-roommate-bio"><span><i class="fa-solid fa-comment-dots"></i> {{ ('নিজের সম্পর্কে' if has_bio_translation(p.hobbies) else 'নিজের সম্পর্কে (মূল ভাষায়)') if lang=='bn' else 'About the student' }}</span><p>“{{ tr_bio(p.hobbies) }}”</p></div>
+                    {% endif %}
+                </div>
+
+                <!-- Col 3: Privacy Shield & Double-Opt-In Connect Action (3 Cols) -->
+                <div class="lg:col-span-3 bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col justify-between h-full space-y-4">
+                    <div>
+                        <div class="flex items-center space-x-1.5 text-xs font-bold text-slate-700 mb-2">
+                            <i class="fa-solid fa-shield-halved text-emerald-600"></i>
+                            <span>Double Opt-In Contact Shield</span>
+                        </div>
+
+                        <!-- Contact Details Unlocked or Masked -->
+                        {% if is_connected %}
+                        <!-- UNLOCKED STATE -->
+                        <div class="bg-white p-3 rounded-xl border border-emerald-300 shadow-sm space-y-2">
+                            <div class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full inline-block">
+                                <i class="fa-solid fa-lock-open mr-1"></i> Mutual Connection Agreed!
+                            </div>
+                            <div class="text-xs">
+                                <span class="text-slate-400 block text-[10px]">Direct Phone:</span>
+                                <span class="font-extrabold text-slate-900 text-sm">{{ p.phone }}</span>
+                            </div>
+                            <div class="flex space-x-2 pt-1">
+                                <a href="https://wa.me/{{ p.phone.replace(' ', '').replace('+', '').replace('-', '') }}" target="_blank" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-[11px] font-bold py-1.5 rounded-lg text-center flex items-center justify-center space-x-1">
+                                    <i class="fa-brands fa-whatsapp"></i>
+                                    <span>WhatsApp</span>
+                                </a>
+                                <a href="tel:{{ p.phone }}" class="flex-1 bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold py-1.5 rounded-lg text-center flex items-center justify-center space-x-1">
+                                    <i class="fa-solid fa-phone"></i>
+                                    <span>Call</span>
+                                </a>
+                            </div>
+                        </div>
+                        {% else %}
+                        <!-- MASKED STATE (Feature 5: contact details shared ONLY after both agree) -->
+                        <div class="bg-white p-3 rounded-xl border border-slate-200 text-center space-y-2">
+                            <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-sm">
+                                <i class="fa-solid fa-lock"></i>
+                            </div>
+                            <div>
+                                <span class="text-xs font-mono font-bold text-slate-700 block">+880 1••••••89</span>
+                                <span class="text-[10px] text-slate-400">Protected for student privacy</span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Connect Action Button -->
+                    <div>
+                        {% if is_connected %}
+                        <button disabled class="w-full bg-emerald-100 text-emerald-800 text-xs font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center space-x-1">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>Connected</span>
+                        </button>
+                        {% elif conn_status == 'pending' %}
+                        <button disabled class="w-full bg-amber-100 text-amber-800 text-xs font-bold py-2.5 rounded-xl cursor-default flex items-center justify-center space-x-1">
+                            <i class="fa-solid fa-clock"></i>
+                            <span>Request Pending Approval</span>
+                        </button>
+                        {% else %}
+                        <button onclick="sendConnectRequest({{ p.user_id }}, '{{ p.name }}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded-xl transition shadow-md flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-handshake"></i>
+                            <span>Request to Connect</span>
+                        </button>
+                        <p class="text-[10px] text-center text-slate-400 mt-1">{{ 'অনুমোদন পেলে যোগাযোগের তথ্য দেখা যাবে' if lang == 'bn' else 'Contact details unlock after approval' }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        {% if not candidate_matches %}
+        <div class="sr-empty-state"><i class="fa-solid fa-user-group"></i><h2>{{ 'এখনো উপযুক্ত প্রোফাইল পাওয়া যায়নি' if lang=='bn' else 'No matching roommate profiles yet' }}</h2><p>{{ 'ফিল্টার শিথিল করে আবার চেষ্টা করুন।' if lang=='bn' else 'Try adjusting your filters.' }}</p></div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal: Edit My Roommate Habits & Preferences -->
+<div id="profileModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-bold text-slate-900 flex items-center">
+                <i class="fa-solid fa-user-gear text-emerald-600 mr-2"></i> Update Your Roommate Matching Habits
+            </h3>
+            <button onclick="closeProfileModal()" class="text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        <form action="/api/update-roommate-profile" method="POST" onsubmit="handleProfileUpdate(event)">
+            <input type="hidden" name="user_id" value="{{ current_user.id }}">
+            <div class="space-y-3.5 text-xs">
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Min Budget (৳)</label>
+                        <input type="number" name="budget_min" value="3500" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Max Budget (৳)</label>
+                        <input type="number" name="budget_max" value="6500" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Preferred Campus Area</label>
+                    <input type="text" name="preferred_area" value="Katabon / Palashi / Dhanmondi" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Sleep Schedule</label>
+                        <select name="sleep_schedule" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                            <option value="night_owl">{{ "রাত জাগা" if lang=="bn" else "Night owl" }}</option>
+                            <option value="early_bird">{{ "সকালে ওঠা" if lang=="bn" else "Early bird" }}</option>
+                            <option value="flexible">{{ "নমনীয়" if lang=="bn" else "Flexible" }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Study Habits</label>
+                        <select name="study_habit" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                            <option value="silent">Strictly Silent Study</option>
+                            <option value="group">Group Study Friendly</option>
+                            <option value="flexible">{{ "নমনীয়" if lang=="bn" else "Flexible" }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Cleanliness Level</label>
+                        <select name="cleanliness" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                            <option value="high">{{ "খুব পরিষ্কার" if lang=="bn" else "Very tidy" }}</option>
+                            <option value="moderate">{{ "মাঝারি" if lang=="bn" else "Moderate" }}</option>
+                            <option value="casual">Casual</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Smoking Policy</label>
+                        <select name="smoking" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                            <option value="non_smoker">Non-Smoker (Strict)</option>
+                            <option value="tolerant">Smoke Tolerant</option>
+                            <option value="smoker">Smoker</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Guest Policy</label>
+                    <select name="guest_policy" class="w-full border border-slate-300 rounded-lg p-2 font-medium">
+                        <option value="daytime_only">Daytime Study Guests Only</option>
+                        <option value="no_guests">Strictly No Outside Guests</option>
+                        <option value="weekends_allowed">Weekend Guests Allowed</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Short Bio & Habits</label>
+                    <textarea name="hobbies" rows="2" class="w-full border border-slate-300 rounded-lg p-2">BUET CSE student. Coding and quiet nights.</textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 mt-5">
+                <button type="button" onclick="closeProfileModal()" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                <button type="submit" class="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow">
+                    Save Matching Profile
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openProfileModal() { document.getElementById('profileModal').classList.remove('hidden'); }
+    function closeProfileModal() { document.getElementById('profileModal').classList.add('hidden'); }
+
+    async function sendConnectRequest(recipientId, recipientName) {
+        const formData = new FormData();
+        formData.append('requester_id', '{{ current_user.id }}');
+        formData.append('recipient_id', recipientId);
+
+        try {
+            const resp = await checkedApiFetch('/api/request-connect', { method: 'POST', body: formData });
+            const data = await resp.json();
+            Swal.fire({
+                title: 'Connection Requested!',
+                text: `Request sent to ${recipientName}. Contact details are hidden until they accept.`,
+                icon: 'success',
+                confirmButtonColor: '#059669'
+            }).then(() => {
+                window.location.reload();
+            });
+        } catch(err) {
+                showNotification(
+                    "Request failed",
+                    err.message || "Please retry.",
+                    "error"
+                );
+            }
+    }
+
+    async function handleProfileUpdate(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        try {
+            await checkedApiFetch('/api/update-roommate-profile', { method: 'POST', body: formData });
+            closeProfileModal();
+            showNotification('Profile Updated!', 'Your compatibility scores have been dynamically recalculated.');
+            setTimeout(() => { window.location.reload(); }, 1200);
+        } catch(err) {
+                showNotification(
+                    "Request failed",
+                    err.message || "Please retry.",
+                    "error"
+                );
+            }
+    }
+
+    async function respondToRequest(connectionId, decision) {
+        const data = new FormData();
+        data.append('connection_id', connectionId);
+        data.append('decision', decision);
+        try {
+            await checkedApiFetch('/api/roommate-respond', {method:'POST',body:data});
+            location.reload();
+        } catch(error) {
+            showNotification('Request failed', error.message, 'error');
+        }
+    }
+    async function toggleVisibility() {
+        const visible = {{ 1 if my_profile.get('is_visible', 0) else 0 }};
+        const data = new FormData();
+        data.append('visible', visible ? 0 : 1);
+        try {
+            await checkedApiFetch('/api/roommate-visibility', {method:'POST',body:data});
+            location.reload();
+        } catch(error) {
+            showNotification('Request failed', error.message, 'error');
+        }
+    }
+
+</script>
+{% endblock %}

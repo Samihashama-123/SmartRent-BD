@@ -1,0 +1,32 @@
+# Python environments / generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Secrets and PRIVATE data - DO NOT COMMIT
+.env
+.env.*
+!.env.example
+smartrent.db
+smartrent_backup.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+uploads/
+
+# Temporary backups, archives and editor noise
+*.bak
+*.before_ui_update.bak
+*.zip
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.db
+*.log
